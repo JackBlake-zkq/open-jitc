@@ -1,0 +1,59 @@
+[project]
+name = "oobleck"
+description = "A framework for efficient fault tolerance in large scale distributed training with pipeline template."
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+version = "0.1.1"
+authors = [
+    {name = "Insu Jang", email = "insujang@umich.edu"}
+]
+maintainers = [
+    {name = "Insu Jang", email = "insujang@umich.edu"}
+]
+dependencies = [
+    "torch",
+    "transformers>=4.36.0",
+    "colossalai==0.3.6",
+    "click",
+    "loguru",
+    "fabric",
+    "cornstarch",
+    "grpcio",
+    "pulp",
+]
+
+[project.optional-dependencies]
+dev = [
+    "torch>=2.1.0",
+    "ruff",
+    "black>=23.0",
+    "isort>=5.12",
+    "pytest",
+    "pytest-mock",
+    "pytest-grpc",
+    "grpcio-tools",
+    "datasets",
+]
+
+[project.scripts]
+oobleck = "oobleck.cli:main"
+
+[tool.ruff]
+# Never enforce `E501` (line length violations).
+ignore = ["E501"]
+
+[tool.setuptools.packages.find]
+# Pure Python packages/modules
+where = ["."]
+include = ["oobleck*"]
+exclude = ["examples", "tests"]
+
+[[tool.setuptools-rust.ext-modules]]
+target = "oobleck.planning.planner"
+path = "Cargo.toml"
+binding = "PyO3"
+
+[build-system]
+requires = ["setuptools>=63.0.0", "wheel", "setuptools-rust"]
+build-backend = "setuptools.build_meta"
