@@ -26,7 +26,7 @@ echo "Sleeping for $SLEEP_TIME seconds..."
 sleep "$SLEEP_TIME"
 
 # Choose 1/3 to be recoverable and 2/3 to be unrecoverable, can make this selection more random later if needed
-if (( GPU_ID % 3 == 0 )); then
+if (( GPU_ID % 3 != 0 )); then
   # Recoverable error using dcgmi
   echo "Simulating recoverable error..."
   dcgmi test --inject --gpuid "$GPU_ID" -f 319 -v 4
