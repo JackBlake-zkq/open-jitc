@@ -14,7 +14,15 @@ sudo systemctl --now enable nvidia-dcgm
 git clone https://github.com/JackBlake-zkq/open-jitc.git
 ```
 
-Make sure you forward your ssh agent so that you can ssh from one vm to the other
+Make sure you forward your ssh agent so that you can ssh from one vm to the other. E.g. in your config file:
+
+```
+Host vm_ip
+  HostName vm_ip
+  User username
+  IdentityFile ~/.ssh/id_ed25519
+  ForwardAgent yes
+```
 
 Running oobleck
 ```bash
