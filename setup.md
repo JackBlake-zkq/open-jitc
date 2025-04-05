@@ -11,4 +11,12 @@ sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/
 sudo apt-get update
 sudo apt-get install -y datacenter-gpu-manager
 sudo systemctl --now enable nvidia-dcgm
+git clone https://github.com/SymbioticLab/Oobleck.git
+```
+
+Make sure you forward your ssh agent so that you can ssh from one vm to the other
+
+Running oobleck
+```bash
+python -m oobleck.elastic.run --hostfile hostfile --tag test Oobleck/examples/run_gpt2.py --tp_size 1
 ```
