@@ -56,7 +56,7 @@ def main(
         global_batch_size=global_batch_size,
         microbatch_size=2,
         precision="bf16",
-        enable_fused_normalization=True,
+        enable_fused_normalization=False,
         enable_flash_attention=True,
         fault_tolerance_threshold=1,
     )
