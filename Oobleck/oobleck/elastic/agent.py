@@ -139,7 +139,7 @@ class Agent:
         )
         procs = []
         for gpu_id in gpu_indices:
-            proc = subprocess.Popen(["sh", "detect_single_gpu.sh", str(gpu_id)], capture_output=True)
+            proc = subprocess.Popen(["sh", "detect_single_gpu.sh", str(gpu_id)], stdout=subprocess.PIPE)
             procs.append(proc)
 
         for proc in procs:
