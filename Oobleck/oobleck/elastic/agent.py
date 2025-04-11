@@ -148,8 +148,12 @@ class Agent:
                 while True:
                     line = proc.stdout.readline()
                     if any([failure in line for failure in UNRECOVERABLE_FAILURES]) in line:
+                        logger.info(
+                            f"Unrecoverable failure detected in GPU {gpu_id}: {line}. ")
                         self.notify_reconfiguration_to_workers(self.dist_info, False)
                     if any([failure in line for failure in RECOVERABLE_FAILURES])  in line:
+                        logger.info(
+                            f"Recoverable failure detected in GPU {gpu_id}: {line}. ")
                         self.notify_reconfiguration_to_workers(self.dist_info, True)
                         
         # for dist_info in self.stub.WatchReconfigurationNotification(Empty()):
