@@ -79,8 +79,8 @@ class ConfigurationEngine:
         for i in range(len(dist_info)):
             host_info = dist_info[i]
             socket = instance.failure_notifier_connections[host_info] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            socket.setblocking(False)
             socket.connect((host_info.ip, 25565))
+            socket.setblocking(False)
 
         ConfigurationEngine._instance = instance
         return ConfigurationEngine._instance
