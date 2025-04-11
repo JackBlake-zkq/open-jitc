@@ -22,6 +22,16 @@ from oobleck.elastic.master_service_pb2_grpc import OobleckMasterStub
 from oobleck.elastic.run import HostInfo, HostStatus
 from oobleck.engine.configuration_engine import ConfigurationEngine
 
+import subprocess
+
+
+UNRECOVERABLE_FAILURES = [
+    "Segmentation fault",
+    "No devices were found",
+    "Unable to determine the device handle for",
+]
+RECOVERABLE_FAILURES = ["ECC error"]
+
 
 @contextmanager
 def temporary_argv(new_argv: list[str]):
@@ -106,14 +116,14 @@ class Agent:
         self.workers: list[Worker] = []
 
     def notify_reconfiguration_to_workers(
-        self, dist_info: list[HostInfo], immediate_restart: bool
+        self, dist_info: list[HostInfo], jitc: bool
     ):
         logger.warning(
             f"Reconfiguration request received from master: {dist_info}. Sending to workers"
         )
         for worker in self.workers:
             worker.pipe.send(
-                "immediate_reconfigure" if immediate_restart else "reconfigure"
+                "immediate_reconfigure" if not jitc else "jitc"
             )
             worker.pipe.send(dist_info)
 
@@ -124,28 +134,46 @@ class Agent:
         self.forward_master_port()
 
     def watch_reconfiguration_notification(self):
-        for dist_info in self.stub.WatchReconfigurationNotification(Empty()):
-            dist_info = cast(DistInfo, dist_info)
-            dist_info = [
-                HostInfo(host.ip, host.devices, host.port, HostStatus[host.status])
-                for host in dist_info.hosts
-            ]
+        gpu_indices: list[int] = list(
+            int(dev) for dev in self.dist_info[self.agent_index].devices.split(",")
+        )
+        procs = []
+        for gpu_id in gpu_indices:
+            proc = subprocess.Popen(["sh", "detect_single_gpu.sh", str(gpu_id)], capture_output=True)
+            procs.append(proc)
 
-            immediate_restart = False
-            if any(host.status == HostStatus.killed for host in dist_info):
-                immediate_restart = True
-            else:
-                assert (
-                    len(self.dist_info) != len(dist_info)
-                    or any(host.status == HostStatus.terminating for host in dist_info)
-                ), "The number of hosts must not change or some hosts should be in terminating."
+        for proc in procs:
+            pid = os.fork()
+            if pid == 0:
+                while True:
+                    line = proc.stdout.readline()
+                    if any([failure in line for failure in UNRECOVERABLE_FAILURES]) in line:
+                        self.notify_reconfiguration_to_workers(self.dist_info, False)
+                    if any([failure in line for failure in RECOVERABLE_FAILURES])  in line:
+                        self.notify_reconfiguration_to_workers(self.dist_info, True)
+                        
+        # for dist_info in self.stub.WatchReconfigurationNotification(Empty()):
+        #     dist_info = cast(DistInfo, dist_info)
+        #     dist_info = [
+        #         HostInfo(host.ip, host.devices, host.port, HostStatus[host.status])
+        #         for host in dist_info.hosts
+        #     ]
 
-            self.dist_info = [
-                host_info
-                for host_info in dist_info
-                if host_info.status != HostStatus.killed
-            ]
-            self.notify_reconfiguration_to_workers(self.dist_info, immediate_restart)
+        #     immediate_restart = False
+        #     if any(host.status == HostStatus.killed for host in dist_info):
+        #         immediate_restart = True
+        #     else:
+        #         assert (
+        #             len(self.dist_info) != len(dist_info)
+        #             or any(host.status == HostStatus.terminating for host in dist_info)
+        #         ), "The number of hosts must not change or some hosts should be in terminating."
+
+        #     self.dist_info = [
+        #         host_info
+        #         for host_info in dist_info
+        #         if host_info.status != HostStatus.killed
+        #     ]
+        #     self.notify_reconfiguration_to_workers(self.dist_info, immediate_restart)
 
     def run_profiler(self):
         raise NotImplementedError()

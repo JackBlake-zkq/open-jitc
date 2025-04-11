@@ -179,22 +179,18 @@ class ExecutionEngine:
     def notification_receive_func(self):
         logger.info("Start failure notification watcher.")
         configuration_engine = ConfigurationEngine.get_instance()
-        (recoverable, host_info, gpu_id) = configuration_engine.recv_failure_notification()
-        if recoverable:
-            logger.info("Recoverable failure detected on host %s, gpu %d", host_info, gpu_id)
-        else:
-            logger.info("Unrecoverable failure detected on host %s, gpu %d", host_info, gpu_id)
-        # self.need_reconfiguration = True
+        immediate_restart = configuration_engine.recv_reconfiguration_notification()
+        self.need_reconfiguration = True
 
-        # if immediate_restart:
-        #     logger.warning(
-        #         "Immediate reconfiguration is needed. Termiating torch.distributed."
-        #     )
-        #     self.on_receive_reconfiguration_notifiation()
-        # else:
-        #     logger.info(
-        #         "Received reconfiguration request. Will start after the current iteration."
-        #     )
+        if immediate_restart:
+            logger.warning(
+                "Immediate reconfiguration is needed. Termiating torch.distributed."
+            )
+            self.on_receive_reconfiguration_notifiation()
+        else:
+            logger.info(
+                "Received reconfiguration request. Will start after the current iteration."
+            )
 
     def on_receive_reconfiguration_notifiation(self):
         """
