@@ -78,6 +78,7 @@ class ConfigurationEngine:
         instance.failure_notifier_connections = {}
         for i in range(len(dist_info)):
             host_info = dist_info[i]
+            logger.info(f"Connecting to {host_info.ip} to receive failure notification...")
             s = instance.failure_notifier_connections[host_info] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect((host_info.ip, 25565))
             s.setblocking(False)
