@@ -139,7 +139,7 @@ class Agent:
         )
         procs = []
         for gpu_id in gpu_indices:
-            proc = subprocess.Popen(["sh", "detect_single_gpu.sh", str(gpu_id)], stdout=subprocess.PIPE)
+            proc = subprocess.Popen(["sh", "open-jitc/detect_single_gpu.sh", str(gpu_id)], stdout=subprocess.PIPE)
             procs.append(proc)
 
         logger.info(f"Working Directory: {os.getcwd()}")
