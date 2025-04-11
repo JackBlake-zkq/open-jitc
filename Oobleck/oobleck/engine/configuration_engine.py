@@ -11,6 +11,8 @@ from loguru import logger
 
 from oobleck.elastic.run import HostInfo, HostStatus
 
+import socket
+
 
 class ConfigurationEngine:
     """
@@ -30,6 +32,7 @@ class ConfigurationEngine:
     dist_info: list[HostInfo]
     rank_map: dict[HostInfo, list[int]]
     rank: int
+    failure_notifier_connections: dict[HostInfo, socket.socket]
 
     def __init__(self):
         raise NotImplementedError(
@@ -71,6 +74,13 @@ class ConfigurationEngine:
         instance.rank = instance.rank_map[my_agent][instance.local_rank]
 
         logger.debug(f"rank_map: {instance.rank_map}")
+
+        instannce.failure_notifier_connections = {}
+        for i in range(len(dist_info)):
+            host_info = dist_info[i]
+            socket = instance.failure_notifier_connections[host_info] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            socket.setblocking(False)
+            socket.connect((host_info.ip, 25565))
 
         ConfigurationEngine._instance = instance
         return ConfigurationEngine._instance
@@ -137,22 +147,23 @@ class ConfigurationEngine:
         """
         return self.agent_index == 0 and self.local_rank == 0
 
-    def recv_reconfiguration_notification(self) -> bool:
+    def recv_failure_notification(self) -> bool:
         """
-        Block this thread until the agent sends a reconfiguration message.
+        Spins until a failure notification is received.
 
-        Returns:
-            True if training requests immediate reconfiguration.
-            False if some agents wll be terminated after the iteration.
+        Returns: (JITC, host_info, gpu_id)
+            JITC: True if error is recoverable and JITC should be done
+            host_info: HostInfo of the process that failed
+            gpu_id: GPU ID of the process that failed
         """
         try:
-            message = self.pipe.recv()
-            if message == "immediate_reconfigure":
-                return True
-            elif message == "reconfigure":
-                return False
-
-            raise ValueError(f"Unexpected reconfiguration message: {message}")
+           while True:
+               for (host_info, gpu_id), conn in self.failure_notifier_connections.items():
+                    data = conn.recv(1)
+                    if data == b'0':
+                        return (False, host_info, gpu_id)
+                    elif data == b'1':
+                        return (True, host_info, gpu_id)
         except Exception:
             # Corresponding agent died. This process should also die.
             os._exit(1)
