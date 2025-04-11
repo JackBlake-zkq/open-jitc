@@ -26,11 +26,11 @@ import subprocess
 
 
 UNRECOVERABLE_FAILURES = [
-    b"Segmentation fault",
-    b"No devices were found",
-    b"Unable to determine the device handle for",
+    "Segmentation fault",
+    "No devices were found",
+    "Unable to determine the device handle for",
 ]
-RECOVERABLE_FAILURES = [b"ECC error"]
+RECOVERABLE_FAILURES = ["ECC error"]
 
 
 @contextmanager
@@ -151,12 +151,12 @@ class Agent:
         gpu_id = gpu_indices[0]
         while True:
             line = proc.stdout.readline()
-            logger.info(f"GPU {gpu_id}: {line}")
-            if any([failure in line for failure in UNRECOVERABLE_FAILURES]) in line:
+            logger.info(f"GPU {gpu_id}: {str(line)}")
+            if any([failure in str(line) for failure in UNRECOVERABLE_FAILURES]) in line:
                 logger.info(
                     f"Unrecoverable failure detected in GPU {gpu_id}: {line}. ")
                 self.notify_reconfiguration_to_workers(self.dist_info, False)
-            if any([failure in line for failure in RECOVERABLE_FAILURES])  in line:
+            if any([failure in str(line) for failure in RECOVERABLE_FAILURES])  in line:
                 logger.info(
                     f"Recoverable failure detected in GPU {gpu_id}: {line}. ")
                 self.notify_reconfiguration_to_workers(self.dist_info, True)
