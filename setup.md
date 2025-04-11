@@ -17,7 +17,7 @@ Pull repo and install stuff for building Oobleck:
 git clone https://github.com/JackBlake-zkq/open-jitc.git
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 . "$HOME/.cargo/env" 
-pip install build
+pip install build flash-attn
 ```
 
 Building Oobleck. From Oobleck directory:
