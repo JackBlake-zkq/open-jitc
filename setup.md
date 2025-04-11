@@ -44,5 +44,11 @@ private_ip_2 slots=1 port=22
 
 Running Oobleck, from root dir:
 ```bash
-python -m oobleck.elastic.run --hostfile hostfile --tag test open-jitc/Oobleck/examples/run_gpt2.py --tp_size 1
+python -m oobleck.elastic.run --hostfile hostfile --tag test examples/run_gpt2.py --tp_size 1
+```
+
+Cleanup between runs:
+```bash
+rm -rf /tmp/oobleck
+sudo killall python
 ```
