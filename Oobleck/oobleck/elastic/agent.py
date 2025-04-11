@@ -142,20 +142,24 @@ class Agent:
             proc = subprocess.Popen(["sh", "detect_single_gpu.sh", str(gpu_id)], stdout=subprocess.PIPE)
             procs.append(proc)
 
-        for proc in procs:
-            pid = os.fork()
-            if pid == 0:
-                while True:
-                    line = proc.stdout.readline()
-                    logger.info(f"GPU {gpu_id}: {line}")
-                    if any([failure in line for failure in UNRECOVERABLE_FAILURES]) in line:
-                        logger.info(
-                            f"Unrecoverable failure detected in GPU {gpu_id}: {line}. ")
-                        self.notify_reconfiguration_to_workers(self.dist_info, False)
-                    if any([failure in line for failure in RECOVERABLE_FAILURES])  in line:
-                        logger.info(
-                            f"Recoverable failure detected in GPU {gpu_id}: {line}. ")
-                        self.notify_reconfiguration_to_workers(self.dist_info, True)
+        logger.info(f"Working Directory: {os.getcwd()}")
+
+        # for proc in procs:
+        #     pid = os.fork()
+        #     if pid == 0:
+        proc = procs[0]
+        gpu_id = gpu_indices[0]
+        while True:
+            line = proc.stdout.readline()
+            logger.info(f"GPU {gpu_id}: {line}")
+            if any([failure in line for failure in UNRECOVERABLE_FAILURES]) in line:
+                logger.info(
+                    f"Unrecoverable failure detected in GPU {gpu_id}: {line}. ")
+                self.notify_reconfiguration_to_workers(self.dist_info, False)
+            if any([failure in line for failure in RECOVERABLE_FAILURES])  in line:
+                logger.info(
+                    f"Recoverable failure detected in GPU {gpu_id}: {line}. ")
+                self.notify_reconfiguration_to_workers(self.dist_info, True)
                         
             # for dist_info in self.stub.WatchReconfigurationNotification(Empty()):
             #     dist_info = cast(DistInfo, dist_info)
