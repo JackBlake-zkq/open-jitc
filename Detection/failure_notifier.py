@@ -18,7 +18,7 @@ if len(sys.argv) != 2:
 
 n_connections = int(sys.argv[1])
 
-result = subprocess.run(" ".split("dcgmi policy --set 0,0 -e -p -n -x"))
+result = subprocess.run("dcgmi policy --set 0,0 -e -p -n -x".split(" "))
 if result.returncode != 0:
     print("Failed to set DCGM policy")
     sys.exit(1)
