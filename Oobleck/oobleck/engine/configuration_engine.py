@@ -75,7 +75,7 @@ class ConfigurationEngine:
 
         logger.debug(f"rank_map: {instance.rank_map}")
 
-        instannce.failure_notifier_connections = {}
+        instance.failure_notifier_connections = {}
         for i in range(len(dist_info)):
             host_info = dist_info[i]
             socket = instance.failure_notifier_connections[host_info] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
