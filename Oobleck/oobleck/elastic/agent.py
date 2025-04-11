@@ -26,11 +26,11 @@ import subprocess
 
 
 UNRECOVERABLE_FAILURES = [
-    "Segmentation fault",
-    "No devices were found",
-    "Unable to determine the device handle for",
+    b"Segmentation fault",
+    b"No devices were found",
+    b"Unable to determine the device handle for",
 ]
-RECOVERABLE_FAILURES = ["ECC error"]
+RECOVERABLE_FAILURES = [b"ECC error"]
 
 
 @contextmanager
@@ -147,6 +147,7 @@ class Agent:
             if pid == 0:
                 while True:
                     line = proc.stdout.readline()
+                    logger.info(f"GPU {gpu_id}: {line}")
                     if any([failure in line for failure in UNRECOVERABLE_FAILURES]) in line:
                         logger.info(
                             f"Unrecoverable failure detected in GPU {gpu_id}: {line}. ")
@@ -156,28 +157,28 @@ class Agent:
                             f"Recoverable failure detected in GPU {gpu_id}: {line}. ")
                         self.notify_reconfiguration_to_workers(self.dist_info, True)
                         
-        # for dist_info in self.stub.WatchReconfigurationNotification(Empty()):
-        #     dist_info = cast(DistInfo, dist_info)
-        #     dist_info = [
-        #         HostInfo(host.ip, host.devices, host.port, HostStatus[host.status])
-        #         for host in dist_info.hosts
-        #     ]
+            # for dist_info in self.stub.WatchReconfigurationNotification(Empty()):
+            #     dist_info = cast(DistInfo, dist_info)
+            #     dist_info = [
+            #         HostInfo(host.ip, host.devices, host.port, HostStatus[host.status])
+            #         for host in dist_info.hosts
+            #     ]
 
-        #     immediate_restart = False
-        #     if any(host.status == HostStatus.killed for host in dist_info):
-        #         immediate_restart = True
-        #     else:
-        #         assert (
-        #             len(self.dist_info) != len(dist_info)
-        #             or any(host.status == HostStatus.terminating for host in dist_info)
-        #         ), "The number of hosts must not change or some hosts should be in terminating."
+            #     immediate_restart = False
+            #     if any(host.status == HostStatus.killed for host in dist_info):
+            #         immediate_restart = True
+            #     else:
+            #         assert (
+            #             len(self.dist_info) != len(dist_info)
+            #             or any(host.status == HostStatus.terminating for host in dist_info)
+            #         ), "The number of hosts must not change or some hosts should be in terminating."
 
-        #     self.dist_info = [
-        #         host_info
-        #         for host_info in dist_info
-        #         if host_info.status != HostStatus.killed
-        #     ]
-        #     self.notify_reconfiguration_to_workers(self.dist_info, immediate_restart)
+            #     self.dist_info = [
+            #         host_info
+            #         for host_info in dist_info
+            #         if host_info.status != HostStatus.killed
+            #     ]
+            #     self.notify_reconfiguration_to_workers(self.dist_info, immediate_restart)
 
     def run_profiler(self):
         raise NotImplementedError()
