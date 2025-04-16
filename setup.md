@@ -17,13 +17,12 @@ Pull repo and install stuff for building Oobleck:
 git clone https://github.com/JackBlake-zkq/open-jitc.git
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 . "$HOME/.cargo/env" 
-pip install build flash-attn
+pip install build
 ```
 
 Building Oobleck. From Oobleck directory:
 ```bash
-python -m build
-pip install dist/oobleck-0.1.1.tar.gz
+python -m build && pip install dist/oobleck-0.1.1.tar.gz flash-attn
 ```
 
 Make sure you forward your ssh agent so that you can ssh from one vm to the other. E.g. in your config file:
