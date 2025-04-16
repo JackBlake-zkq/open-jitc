@@ -1,0 +1,143 @@
+2025-04-16 05:20:44.188 | INFO     | __main__:launch_workers:170 - Launching worker 0 (GPU: 0)...
+2025-04-16 05:20:44.193 | DEBUG    | __main__:forward_master_port:205 - Waiting for rank 0 port...
+2025-04-16 05:20:47.161 | DEBUG    | __mp_main__:worker_main:66 - Worker process started: (agent_index: 0, gpu_index: 0)
+2025-04-16 05:20:47.163 | DEBUG    | oobleck.engine.configuration_engine:create:63 - dist_info: [HostInfo(ip='10.142.0.15', devices='0', port=22, status=<HostStatus.up: 0>), HostInfo(ip='10.128.0.30', devices='0', port=22, status=<HostStatus.up: 0>)], agent_index: 0
+2025-04-16 05:20:47.164 | DEBUG    | oobleck.engine.configuration_engine:create:73 - rank_map: {HostInfo(ip='10.142.0.15', devices='0', port=22, status=<HostStatus.up: 0>): [0], HostInfo(ip='10.128.0.30', devices='0', port=22, status=<HostStatus.up: 0>): [1]}
+/opt/conda/lib/python3.10/site-packages/colossalai/pipeline/schedule/_utils.py:19: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _register_pytree_node(OrderedDict, _odict_flatten, _odict_unflatten)
+/opt/conda/lib/python3.10/site-packages/torch/utils/_pytree.py:375: UserWarning: <class 'collections.OrderedDict'> is already registered as pytree node. Overwriting the previous registration.
+  warnings.warn(
+/opt/conda/lib/python3.10/site-packages/colossalai/shardformer/layer/normalization.py:45: UserWarning: Please install apex from source (https://github.com/NVIDIA/apex) to use the fused layernorm kernel
+  warnings.warn("Please install apex from source (https://github.com/NVIDIA/apex) to use the fused layernorm kernel")
+/opt/conda/lib/python3.10/site-packages/colossalai/accelerator/cuda_accelerator.py:282: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  return torch.cuda.amp.autocast(enabled=enabled, dtype=dtype, cache_enabled=cache_enabled)
+/opt/conda/lib/python3.10/site-packages/transformers/utils/generic.py:441: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+/opt/conda/lib/python3.10/site-packages/transformers/utils/generic.py:309: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+/opt/conda/lib/python3.10/site-packages/huggingface_hub/file_download.py:896: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+Generating test split:   0%|          | 0/4358 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 4358/4358 [00:00<00:00, 395927.33 examples/s]
+Generating train split:   0%|          | 0/36718 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 36718/36718 [00:00<00:00, 694924.80 examples/s]
+Generating validation split:   0%|          | 0/3760 [00:00<?, ? examples/s]Generating validation split: 100%|██████████| 3760/3760 [00:00<00:00, 573475.75 examples/s]
+/opt/conda/lib/python3.10/site-packages/colossalai/pipeline/schedule/_utils.py:19: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _register_pytree_node(OrderedDict, _odict_flatten, _odict_unflatten)
+/opt/conda/lib/python3.10/site-packages/torch/utils/_pytree.py:375: UserWarning: <class 'collections.OrderedDict'> is already registered as pytree node. Overwriting the previous registration.
+  warnings.warn(
+/opt/conda/lib/python3.10/site-packages/colossalai/shardformer/layer/normalization.py:45: UserWarning: Please install apex from source (https://github.com/NVIDIA/apex) to use the fused layernorm kernel
+  warnings.warn("Please install apex from source (https://github.com/NVIDIA/apex) to use the fused layernorm kernel")
+/opt/conda/lib/python3.10/site-packages/colossalai/accelerator/cuda_accelerator.py:282: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  return torch.cuda.amp.autocast(enabled=enabled, dtype=dtype, cache_enabled=cache_enabled)
+/opt/conda/lib/python3.10/site-packages/transformers/utils/generic.py:441: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+/opt/conda/lib/python3.10/site-packages/transformers/utils/generic.py:309: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+2025-04-16 05:21:01.776 | DEBUG    | oobleck.planning.profiler:_profile_model:189 - Profiler initiating torch.distributed: /tmp/oobleck/test/profile/store with 1 workers
+2025-04-16 05:21:01.777 | DEBUG    | oobleck.planning.profiler:_profile_model:202 - Sharding model with 1 ranks
+2025-04-16 05:21:04.792 | INFO     | oobleck.planning.profiler:_profile_model:298 - Profiler started...
+`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`...
+/opt/conda/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py:745: UserWarning: torch.utils.checkpoint: the use_reentrant parameter should be passed explicitly. In version 2.5 we will raise an exception if use_reentrant is not passed. use_reentrant=False is recommended, but if you need to preserve the current default behavior, you can pass use_reentrant=True. Refer to docs for more details on the differences between the two variants.
+  return fn(*args, **kwargs)
+/opt/conda/lib/python3.10/site-packages/torch/utils/checkpoint.py:87: UserWarning: None of the inputs have requires_grad=True. Gradients will be None
+  warnings.warn(
+2025-04-16 05:21:06.142 | DEBUG    | oobleck.planning.profiler:_profile_model:324 - Iterating until overflow solved...
+2025-04-16 05:21:08.213 | DEBUG    | oobleck.planning.profiler:_profile_model:383 - Profiler finished.
+2025-04-16 05:21:08.213 | DEBUG    | oobleck.planning.profiler:_profile_model:391 - Writing results to /tmp/oobleck/test/profile/profile_tp1_mb2_bf16.json
+[rank0]:[W416 05:21:08.685038652 ProcessGroupNCCL.cpp:4561] [PG ID 0 PG GUID 0 Rank 0]  using GPU 0 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. Specify device_ids in barrier() to force use of a particular device, or call init_process_group() with a device_id.
+2025-04-16 05:21:09.863 | DEBUG    | oobleck.engine.configuration_engine:init_distributed:190 - torch rank 0 port: 44529
+2025-04-16 05:21:09.864 | DEBUG    | __main__:forward_master_port:207 - Received rank 0 port: 44529. Sending it to master.
+2025-04-16 05:21:10.043 | DEBUG    | oobleck.engine.configuration_engine:init_distributed:209 - Initializing torch.distributed. rank: 0, world size: 2
+2025-04-16 05:21:10.044 | DEBUG    | oobleck.engine.configuration_engine:init_distributed:223 - Distributed environment initialized.
+2025-04-16 05:21:11.240 | DEBUG    | oobleck.engine.execution_engine:prepare:127 - Creating pipeline templates...
+2025-04-16 05:21:11.246 | DEBUG    | oobleck.engine.execution_engine:prepare:151 - Pipeline templates: {1: PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 1 stages), 2: PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 2 stages)}
+2025-04-16 05:21:11.246 | DEBUG    | oobleck.engine.pipeline_instantiator:_enumerate_instantiation_options:94 - Enumerating all feasible sets of pipeline templates for 2 nodes.
+2025-04-16 05:21:11.246 | DEBUG    | oobleck.engine.pipeline_instantiator:_enumerate_instantiation_options:121 - Dynamic programming result: [defaultdict(<class 'int'>, {PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 1 stages): 2}), defaultdict(<class 'int'>, {PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 2 stages): 1})]
+/opt/conda/lib/python3.10/site-packages/pulp/pulp.py:1424: UserWarning: Spaces are not permitted in the name. Converted to '_'
+  warnings.warn("Spaces are not permitted in the name. Converted to '_'")
+2025-04-16 05:21:11.259 | DEBUG    | oobleck.engine.pipeline_instantiator:distribute_batch:205 - Optiomal batch distribution for defaultdict(<class 'int'>, {PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 1 stages): 2}): {PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 1 stages): 24}
+2025-04-16 05:21:11.264 | DEBUG    | oobleck.engine.pipeline_instantiator:distribute_batch:205 - Optiomal batch distribution for defaultdict(<class 'int'>, {PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 2 stages): 1}): {PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 2 stages): 48}
+2025-04-16 05:21:11.264 | DEBUG    | oobleck.engine.pipeline_instantiator:instantiate:64 - Batch distributions===============
+  {PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 1 stages): 24} (latency 3290.2349 ms)
+  {PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 2 stages): 48} (latency 3365.7309 ms)
+
+2025-04-16 05:21:11.264 | INFO     | oobleck.engine.pipeline_instantiator:instantiate:73 - Optimal batch distribution: {PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 1 stages): 24}
+2025-04-16 05:21:11.264 | DEBUG    | oobleck.engine.execution_engine:prepare:161 - Pipeline instances: defaultdict(<class 'int'>, {PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 1 stages): 2})
+2025-04-16 05:21:11.264 | DEBUG    | oobleck.engine.execution_engine:prepare:162 - Microbatches: {PipelineTemplate(transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel, 1 stages): 24}
+Epoch [1/3]:   0%|          | 0/382 [00:00<?, ?it/s]2025-04-16 05:21:11.438 | INFO     | oobleck.engine.execution_engine:notification_receive_func:180 - Start failure notification watcher.
+/opt/conda/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py:745: UserWarning: torch.utils.checkpoint: the use_reentrant parameter should be passed explicitly. In version 2.5 we will raise an exception if use_reentrant is not passed. use_reentrant=False is recommended, but if you need to preserve the current default behavior, you can pass use_reentrant=True. Refer to docs for more details on the differences between the two variants.
+  return fn(*args, **kwargs)
+Epoch [1/3]:   0%|          | 0/382 [00:12<?, ?it/s, loss=9.35]Epoch [1/3]:   0%|          | 1/382 [00:12<1:21:30, 12.84s/it, loss=9.35]Epoch [1/3]:   0%|          | 1/382 [00:24<1:21:30, 12.84s/it, loss=9.12]Epoch [1/3]:   1%|          | 2/382 [00:24<1:17:34, 12.25s/it, loss=9.12]Epoch [1/3]:   1%|          | 2/382 [00:36<1:17:34, 12.25s/it, loss=9.26]Epoch [1/3]:   1%|          | 3/382 [00:36<1:16:29, 12.11s/it, loss=9.26]Epoch [1/3]:   1%|          | 3/382 [00:48<1:16:29, 12.11s/it, loss=8.93]Epoch [1/3]:   1%|          | 4/382 [00:48<1:15:49, 12.03s/it, loss=8.93]Epoch [1/3]:   1%|          | 4/382 [01:00<1:15:49, 12.03s/it, loss=7.39]Epoch [1/3]:   1%|▏         | 5/382 [01:00<1:15:29, 12.01s/it, loss=7.39]Epoch [1/3]:   1%|▏         | 5/382 [01:12<1:15:29, 12.01s/it, loss=5.35]Epoch [1/3]:   2%|▏         | 6/382 [01:12<1:15:22, 12.03s/it, loss=5.35]Epoch [1/3]:   2%|▏         | 6/382 [01:24<1:15:22, 12.03s/it, loss=3.04]Epoch [1/3]:   2%|▏         | 7/382 [01:24<1:15:08, 12.02s/it, loss=3.04]Epoch [1/3]:   2%|▏         | 7/382 [01:35<1:25:32, 13.69s/it, loss=3.04]
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "/opt/conda/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/opt/conda/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/opt/conda/lib/python3.10/site-packages/oobleck/elastic/agent.py", line 75, in worker_main
+    runpy.run_path(script_path.as_posix(), run_name="__main__")
+  File "/opt/conda/lib/python3.10/runpy.py", line 289, in run_path
+    return _run_module_code(code, init_globals, run_name,
+  File "/opt/conda/lib/python3.10/runpy.py", line 96, in _run_module_code
+    _run_code(code, mod_globals, init_globals,
+  File "/opt/conda/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/jblake8149/open-jitc/Oobleck/examples/run_gpt2.py", line 150, in <module>
+    main()
+  File "/opt/conda/lib/python3.10/site-packages/click/core.py", line 1157, in __call__
+    return self.main(*args, **kwargs)
+  File "/opt/conda/lib/python3.10/site-packages/click/core.py", line 1078, in main
+    rv = self.invoke(ctx)
+  File "/opt/conda/lib/python3.10/site-packages/click/core.py", line 1434, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+  File "/opt/conda/lib/python3.10/site-packages/click/core.py", line 783, in invoke
+    return __callback(*args, **kwargs)
+  File "/home/jblake8149/open-jitc/Oobleck/examples/run_gpt2.py", line 142, in main
+    pbar.set_postfix({"loss": loss.item()})
+RuntimeError: CUDA error: unknown error
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+[rank0]:[E416 05:22:47.778300917 ProcessGroupNCCL.cpp:1895] [PG ID 2 PG GUID 3 Rank 0] Process group watchdog thread terminated with exception: CUDA error: unknown error
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+Exception raised from c10_cuda_check_implementation at /pytorch/c10/cuda/CUDAException.cpp:43 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::string) + 0x96 (0x7fb9f79931b6 in /opt/conda/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: c10::detail::torchCheckFail(char const*, char const*, unsigned int, std::string const&) + 0x64 (0x7fb9f793ca76 in /opt/conda/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #2: c10::cuda::c10_cuda_check_implementation(int, char const*, char const*, int, bool) + 0x118 (0x7fb9f7a81918 in /opt/conda/lib/python3.10/site-packages/torch/lib/libc10_cuda.so)
+frame #3: c10d::ProcessGroupNCCL::WorkNCCL::finishedGPUExecutionInternal() const + 0x56 (0x7fb9f8ccf556 in /opt/conda/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #4: c10d::ProcessGroupNCCL::WorkNCCL::isCompleted() + 0xa0 (0x7fb9f8cdc8c0 in /opt/conda/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #5: c10d::ProcessGroupNCCL::watchdogHandler() + 0x617 (0x7fb9f8cde557 in /opt/conda/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #6: c10d::ProcessGroupNCCL::ncclCommWatchdog() + 0x14d (0x7fb9f8cdf6ed in /opt/conda/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #7: <unknown function> + 0x145c0 (0x7fba41d625c0 in /opt/conda/lib/python3.10/site-packages/torch/lib/libtorch.so)
+frame #8: <unknown function> + 0x7ea7 (0x7fba4ce57ea7 in /lib/x86_64-linux-gnu/libpthread.so.0)
+frame #9: clone + 0x3f (0x7fba4cc28acf in /lib/x86_64-linux-gnu/libc.so.6)
+
+terminate called after throwing an instance of 'c10::DistBackendError'
+  what():  [PG ID 2 PG GUID 3 Rank 0] Process group watchdog thread terminated with exception: CUDA error: unknown error
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+Exception raised from c10_cuda_check_implementation at /pytorch/c10/cuda/CUDAException.cpp:43 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::string) + 0x96 (0x7fb9f79931b6 in /opt/conda/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: c10::detail::torchCheckFail(char const*, char const*, unsigned int, std::string const&) + 0x64 (0x7fb9f793ca76 in /opt/conda/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #2: c10::cuda::c10_cuda_check_implementation(int, char const*, char const*, int, bool) + 0x118 (0x7fb9f7a81918 in /opt/conda/lib/python3.10/site-packages/torch/lib/libc10_cuda.so)
+frame #3: c10d::ProcessGroupNCCL::WorkNCCL::finishedGPUExecutionInternal() const + 0x56 (0x7fb9f8ccf556 in /opt/conda/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #4: c10d::ProcessGroupNCCL::WorkNCCL::isCompleted() + 0xa0 (0x7fb9f8cdc8c0 in /opt/conda/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #5: c10d::ProcessGroupNCCL::watchdogHandler() + 0x617 (0x7fb9f8cde557 in /opt/conda/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #6: c10d::ProcessGroupNCCL::ncclCommWatchdog() + 0x14d (0x7fb9f8cdf6ed in /opt/conda/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #7: <unknown function> + 0x145c0 (0x7fba41d625c0 in /opt/conda/lib/python3.10/site-packages/torch/lib/libtorch.so)
+frame #8: <unknown function> + 0x7ea7 (0x7fba4ce57ea7 in /lib/x86_64-linux-gnu/libpthread.so.0)
+frame #9: clone + 0x3f (0x7fba4cc28acf in /lib/x86_64-linux-gnu/libc.so.6)
+
+Exception raised from ncclCommWatchdog at /pytorch/torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp:1901 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::string) + 0x96 (0x7fb9f79931b6 in /opt/conda/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0xe5c6fc (0x7fb9f893a6fc in /opt/conda/lib/python3.10/site-packages/torch/lib/libtorch_cuda.so)
+frame #2: <unknown function> + 0x145c0 (0x7fba41d625c0 in /opt/conda/lib/python3.10/site-packages/torch/lib/libtorch.so)
+frame #3: <unknown function> + 0x7ea7 (0x7fba4ce57ea7 in /lib/x86_64-linux-gnu/libpthread.so.0)
+frame #4: clone + 0x3f (0x7fba4cc28acf in /lib/x86_64-linux-gnu/libc.so.6)
+

@@ -12,17 +12,27 @@ sudo apt-get install -y datacenter-gpu-manager
 sudo systemctl --now enable nvidia-dcgm
 ```
 
-Pull repo and install stuff for building Oobleck:
+Clone repo
 ```bash
 git clone https://github.com/JackBlake-zkq/open-jitc.git
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-. "$HOME/.cargo/env" 
-pip install build
 ```
 
-Building Oobleck. From Oobleck directory:
+Standard Oobleck:
 ```bash
-python -m build && pip install dist/oobleck-0.1.1.tar.gz flash-attn
+pip install oobleck
+```
+
+Setup to build our modified Oobleck:
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+. "$HOME/.cargo/env" 
+pip install build flash-attn
+```
+
+Building our modified Oobleck. From Oobleck directory:
+```bash
+python -m build
+pip install dist/oobleck-0.1.1.tar.gz
 ```
 
 Make sure you forward your ssh agent so that you can ssh from one vm to the other. E.g. in your config file:
