@@ -105,19 +105,20 @@ cudaError_t cudaLaunchKernel(const void *func, dim3 gridDim, dim3 blockDim,
 }
 
 //// NCCL Logging
-static ncclResult_t (*real_ncclAllReduce)(const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t) = nullptr;
-
 ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
                                       ncclDataType_t datatype, ncclRedOp_t op,
                                       ncclComm_t comm, cudaStream_t stream) {
-    if (!real_ncclAllReduce) {
-        real_ncclAllReduce = (decltype(real_ncclAllReduce)) dlsym(RTLD_DEFAULT, "ncclAllReduce");
-    }
+    
+    static auto real = (ncclResult_t (*)(const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t)) dlsym(RTLD_DEFAULT, "ncclAllReduce");
 
     if (!real_ncclAllReduce) {
       fprintf(log_file, "[NCCL LOGGER] Failed to load real ncclAllReduce: %s\n", dlerror());
     }
-    
+
+    if (!comm || !stream) {
+      fprintf(stderr, "[NCCL LOGGER] Skipping ncclAllReduce due to null comm or stream\n");
+      return ncclInvalidArgument;
+    }
 
     if (log_file) {
         fprintf(log_file, "[NCCL] ncclAllReduce called with count: %zu\n", count);
