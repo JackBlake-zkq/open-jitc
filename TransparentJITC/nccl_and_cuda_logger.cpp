@@ -109,7 +109,9 @@ cudaError_t cudaLaunchKernel(const void *func, dim3 gridDim, dim3 blockDim,
 extern "C" ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
                                       ncclDataType_t datatype, ncclRedOp_t op,
                                       ncclComm_t comm, cudaStream_t stream) {
-    static auto real = (ncclResult_t (*)(const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t)) dlsym(RTLD_NEXT, "ncclAllReduce");
+    void*   nccl_handle = dlopen("libnccl.so.2", RTLD_LAZY);
+    static auto real = (ncclResult_t (*)(const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t)) dlsym(nccl_handle, "ncclAllReduce");
+    dlclose(nccl_handle);
 
     if (!real) {
       fprintf(log_file, "[NCCL LOGGER] Failed to load real ncclAllReduce: %s\n", dlerror());
