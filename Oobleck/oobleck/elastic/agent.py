@@ -23,6 +23,7 @@ from oobleck.elastic.run import HostInfo, HostStatus
 from oobleck.engine.configuration_engine import ConfigurationEngine
 
 import subprocess
+import socket
 
 
 UNRECOVERABLE_FAILURES = [
@@ -116,14 +117,28 @@ class Agent:
         self.workers: list[Worker] = []
 
     def notify_reconfiguration_to_workers(
-        self, dist_info: list[HostInfo], jitc: bool
+        self, dist_info: list[HostInfo], immediate_restart: bool
     ):
+        # logger.warning(
+        #     f"Reconfiguration request received from master: {dist_info}. Sending to workers"
+        # )
+        # for worker in self.workers:
+        #     worker.pipe.send(
+        #         "immediate_reconfigure" if not jitc else "jitc"
+        #     )
+        #     worker.pipe.send(dist_info)
+
+        # # If this agent is about to die, don't forward the port
+        # if dist_info[self.agent_index].status == HostStatus.terminating:
+        #     return
+
+        # self.forward_master_port()
         logger.warning(
             f"Reconfiguration request received from master: {dist_info}. Sending to workers"
         )
         for worker in self.workers:
             worker.pipe.send(
-                "immediate_reconfigure" if not jitc else "jitc"
+                "immediate_reconfigure" if immediate_restart else "reconfigure"
             )
             worker.pipe.send(dist_info)
 
@@ -134,55 +149,57 @@ class Agent:
         self.forward_master_port()
 
     def watch_reconfiguration_notification(self):
-        gpu_indices: list[int] = list(
-            int(dev) for dev in self.dist_info[self.agent_index].devices.split(",")
-        )
-        procs = []
-        for gpu_id in gpu_indices:
-            proc = subprocess.Popen(["sh", "open-jitc/detect_single_gpu.sh", str(gpu_id)], stdout=subprocess.PIPE)
-            procs.append(proc)
+    
 
-        logger.info(f"Working Directory: {os.getcwd()}")
+        # gpu_indices: list[int] = list(
+        #     int(dev) for dev in self.dist_info[self.agent_index].devices.split(",")
+        # )
+        # procs = []
+        # for gpu_id in gpu_indices:
+        #     proc = subprocess.Popen(["sh", "open-jitc/detect_single_gpu.sh", str(gpu_id)], stdout=subprocess.PIPE)
+        #     procs.append(proc)
+
+        # logger.info(f"Working Directory: {os.getcwd()}")
 
         # for proc in procs:
         #     pid = os.fork()
         #     if pid == 0:
-        proc = procs[0]
-        gpu_id = gpu_indices[0]
-        while True:
-            line = proc.stdout.readline().decode()
-            logger.info(f"GPU {gpu_id}: {line}")
-            if any([failure in line for failure in UNRECOVERABLE_FAILURES]):
-                logger.info(
-                    f"Unrecoverable failure detected in GPU {gpu_id}: {line}. ")
-                self.notify_reconfiguration_to_workers(self.dist_info, False)
-            if any([failure in line for failure in RECOVERABLE_FAILURES]):
-                logger.info(
-                    f"Recoverable failure detected in GPU {gpu_id}: {line}. ")
-                self.notify_reconfiguration_to_workers(self.dist_info, True)
+        # proc = procs[0]
+        # gpu_id = gpu_indices[0]
+        # while True:
+        #     line = proc.stdout.readline().decode()
+        #     logger.info(f"GPU {gpu_id}: {line}")
+        #     if any([failure in line for failure in UNRECOVERABLE_FAILURES]):
+        #         logger.info(
+        #             f"Unrecoverable failure detected in GPU {gpu_id}: {line}. ")
+        #         self.notify_reconfiguration_to_workers(self.dist_info, False)
+        #     if any([failure in line for failure in RECOVERABLE_FAILURES]):
+        #         logger.info(
+        #             f"Recoverable failure detected in GPU {gpu_id}: {line}. ")
+        #         self.notify_reconfiguration_to_workers(self.dist_info, True)
                         
-            # for dist_info in self.stub.WatchReconfigurationNotification(Empty()):
-            #     dist_info = cast(DistInfo, dist_info)
-            #     dist_info = [
-            #         HostInfo(host.ip, host.devices, host.port, HostStatus[host.status])
-            #         for host in dist_info.hosts
-            #     ]
+        for dist_info in self.stub.WatchReconfigurationNotification(Empty()):
+            dist_info = cast(DistInfo, dist_info)
+            dist_info = [
+                HostInfo(host.ip, host.devices, host.port, HostStatus[host.status])
+                for host in dist_info.hosts
+            ]
 
-            #     immediate_restart = False
-            #     if any(host.status == HostStatus.killed for host in dist_info):
-            #         immediate_restart = True
-            #     else:
-            #         assert (
-            #             len(self.dist_info) != len(dist_info)
-            #             or any(host.status == HostStatus.terminating for host in dist_info)
-            #         ), "The number of hosts must not change or some hosts should be in terminating."
+            immediate_restart = False
+            if any(host.status == HostStatus.killed for host in dist_info):
+                immediate_restart = True
+            else:
+                assert (
+                    len(self.dist_info) != len(dist_info)
+                    or any(host.status == HostStatus.terminating for host in dist_info)
+                ), "The number of hosts must not change or some hosts should be in terminating."
 
-            #     self.dist_info = [
-            #         host_info
-            #         for host_info in dist_info
-            #         if host_info.status != HostStatus.killed
-            #     ]
-            #     self.notify_reconfiguration_to_workers(self.dist_info, immediate_restart)
+            self.dist_info = [
+                host_info
+                for host_info in dist_info
+                if host_info.status != HostStatus.killed
+            ]
+            self.notify_reconfiguration_to_workers(self.dist_info, immediate_restart)
 
     def run_profiler(self):
         raise NotImplementedError()
