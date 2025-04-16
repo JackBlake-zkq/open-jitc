@@ -107,27 +107,27 @@ cudaError_t cudaLaunchKernel(const void *func, dim3 gridDim, dim3 blockDim,
 //// NCCL Logging
 static ncclResult_t (*real_ncclAllReduce)(const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t) = nullptr;
 
-extern "C" ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
+ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
                                       ncclDataType_t datatype, ncclRedOp_t op,
                                       ncclComm_t comm, cudaStream_t stream) {
     if (!real_ncclAllReduce) {
         real_ncclAllReduce = (decltype(real_ncclAllReduce)) dlsym(RTLD_DEFAULT, "ncclAllReduce");
     }
 
-    // if (!real_ncclAllReduce) {
-    //   fprintf(log_file, "[NCCL LOGGER] Failed to load real ncclAllReduce: %s\n", dlerror());
-    // }
+    if (!real_ncclAllReduce) {
+      fprintf(log_file, "[NCCL LOGGER] Failed to load real ncclAllReduce: %s\n", dlerror());
+    }
     
 
-    // if (log_file) {
-    //     fprintf(log_file, "[NCCL] ncclAllReduce called with count: %zu\n", count);
-    //     fclose(log_file);
-    // }
+    if (log_file) {
+        fprintf(log_file, "[NCCL] ncclAllReduce called with count: %zu\n", count);
+        fclose(log_file);
+    }
 
     ncclResult_t result = real_ncclAllReduce(sendbuff, recvbuff, count, datatype, op, comm, stream);
-    // if (log_file) {
-    //     fprintf(log_file, "[NCCL] ncclAllReduce result: %d\n", result);
-    //     fflush(log_file);
-    // }
+    if (log_file) {
+        fprintf(log_file, "[NCCL] ncclAllReduce result: %d\n", result);
+        fflush(log_file);
+    }
     return result;
 }
