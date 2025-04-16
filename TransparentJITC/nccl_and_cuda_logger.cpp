@@ -130,7 +130,7 @@ ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
         fprintf(log_file, "[NCCL] ncclAllReduce result: %d\n", result);
         fflush(log_file);
     }
-    char * error = ncclGetLastError(comm);
+    const char * error = ncclGetLastError(comm);
     if (error) {
         fprintf(log_file, "[NCCL] ncclAllReduce error: %s\n", error);
         fflush(log_file);
