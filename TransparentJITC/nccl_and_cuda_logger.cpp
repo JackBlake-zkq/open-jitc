@@ -8,12 +8,11 @@
 
 
 const char *log_file_path = "transparent_jitc.log";
-void* nccl_handle;
 static FILE *log_file = NULL;
 
 __attribute__((constructor))
 void init_logger() {
-  nccl_handle = dlopen("libnccl.so", RTLD_LAZY);
+
   log_file = fopen(log_file_path, "w");
   if (!log_file) {
     fprintf(stderr, "Failed to open log file!\n");
@@ -25,7 +24,6 @@ void init_logger() {
 
 __attribute__((destructor))
 void shutdown_logger() {
-  dlclose(nccl_handle);
   if (log_file) {
     fprintf(log_file, "[CUDA LOGGER] Shutting down\n");
     fclose(log_file);
@@ -111,8 +109,9 @@ cudaError_t cudaLaunchKernel(const void *func, dim3 gridDim, dim3 blockDim,
 extern "C" ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
                                       ncclDataType_t datatype, ncclRedOp_t op,
                                       ncclComm_t comm, cudaStream_t stream) {
-
+    void*   nccl_handle = dlopen("libnccl.so", RTLD_LAZY);
     static auto real = (ncclResult_t (*)(const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t)) dlsym(nccl_handle, "ncclAllReduce");
+    dlclose(nccl_handle);
 
     if (!real) {
       fprintf(log_file, "[NCCL LOGGER] Failed to load real ncclAllReduce: %s\n", dlerror());
