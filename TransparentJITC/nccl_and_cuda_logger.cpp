@@ -8,10 +8,12 @@
 
 
 const char *log_file_path = "transparent_jitc.log";
+void* nccl_handle;
 static FILE *log_file = NULL;
 
 __attribute__((constructor))
 void init_logger() {
+  nccl_handle = dlopen("libnccl.so", RTLD_LAZY);
   log_file = fopen(log_file_path, "w");
   if (!log_file) {
     fprintf(stderr, "Failed to open log file!\n");
@@ -23,6 +25,7 @@ void init_logger() {
 
 __attribute__((destructor))
 void shutdown_logger() {
+  dlclose(nccl_handle);
   if (log_file) {
     fprintf(log_file, "[CUDA LOGGER] Shutting down\n");
     fclose(log_file);
@@ -105,10 +108,16 @@ cudaError_t cudaLaunchKernel(const void *func, dim3 gridDim, dim3 blockDim,
 }
 
 //// NCCL Logging
-ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
+extern "C" ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
                                       ncclDataType_t datatype, ncclRedOp_t op,
                                       ncclComm_t comm, cudaStream_t stream) {
-  
+
+    static auto real = (ncclResult_t (*)(const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t)) dlsym(nccl_handle, "ncclAllReduce");
+
+    if (!real) {
+      fprintf(log_file, "[NCCL LOGGER] Failed to load real ncclAllReduce: %s\n", dlerror());
+    }
+
     if (!comm || !stream) {
       fprintf(stderr, "[NCCL LOGGER] Skipping ncclAllReduce due to null comm or stream\n");
       return ncclInvalidArgument;
@@ -119,14 +128,9 @@ ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
         fclose(log_file);
     }
 
-    ncclResult_t result = pncclAllReduce(sendbuff, recvbuff, count, datatype, op, comm, stream);
+    ncclResult_t result = real(sendbuff, recvbuff, count, datatype, op, comm, stream);
     if (log_file) {
         fprintf(log_file, "[NCCL] ncclAllReduce result: %d\n", result);
-        fflush(log_file);
-    }
-    const char * error = ncclGetLastError(comm);
-    if (error) {
-        fprintf(log_file, "[NCCL] ncclAllReduce error: %s\n", error);
         fflush(log_file);
     }
     return result;
