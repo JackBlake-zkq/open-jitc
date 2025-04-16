@@ -111,7 +111,7 @@ ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
     
     static auto real = (ncclResult_t (*)(const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t)) dlsym(RTLD_DEFAULT, "ncclAllReduce");
 
-    if (!real_ncclAllReduce) {
+    if (!real) {
       fprintf(log_file, "[NCCL LOGGER] Failed to load real ncclAllReduce: %s\n", dlerror());
     }
 
@@ -125,7 +125,7 @@ ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
         fclose(log_file);
     }
 
-    ncclResult_t result = real_ncclAllReduce(sendbuff, recvbuff, count, datatype, op, comm, stream);
+    ncclResult_t result = real(sendbuff, recvbuff, count, datatype, op, comm, stream);
     if (log_file) {
         fprintf(log_file, "[NCCL] ncclAllReduce result: %d\n", result);
         fflush(log_file);
