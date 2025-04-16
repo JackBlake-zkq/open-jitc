@@ -113,13 +113,6 @@ extern "C" ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size
     static auto real = (ncclResult_t (*)(const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t)) dlsym(RTLD_NEXT, "ncclAllReduce");
     // dlclose(nccl_handle);
 
-    char * err = dlerror();
-    if (err) {
-      fprintf(log_file, "[NCCL LOGGER] Error loading ncclAllReduce: %s\n", err);
-    } else {
-      fprintf(log_file, "[NCCL LOGGER] Loaded ncclAllReduce %p \n", real);
-    }
-
     if (!real) {
       fprintf(log_file, "[NCCL LOGGER] Failed to load real ncclAllReduce: %s\n", dlerror());
     } else {
