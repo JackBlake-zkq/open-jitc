@@ -70,14 +70,14 @@ cudaError_t cudaFree(void *devPtr) {
   return result;
 }
 
-cudaError_t cudaGetLastError(void) {
-  static auto real = (cudaError_t (*)()) dlsym(RTLD_NEXT, "cudaGetLastError");
-  cudaError_t result = real();
-  log_timestamp();
-  fprintf(log_file, "cudaGetLastError() -> result=%d\n", result);
-  fflush(log_file);
-  return result;
-}
+// cudaError_t cudaGetLastError(void) {
+//   static auto real = (cudaError_t (*)()) dlsym(RTLD_NEXT, "cudaGetLastError");
+//   cudaError_t result = real();
+//   log_timestamp();
+//   fprintf(log_file, "cudaGetLastError() -> result=%d\n", result);
+//   fflush(log_file);
+//   return result;
+// }
 
 cudaError_t cudaDeviceSynchronize(void) {
   static auto real = (cudaError_t (*)()) dlsym(RTLD_NEXT, "cudaDeviceSynchronize");
@@ -109,9 +109,16 @@ cudaError_t cudaLaunchKernel(const void *func, dim3 gridDim, dim3 blockDim,
 extern "C" ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
                                       ncclDataType_t datatype, ncclRedOp_t op,
                                       ncclComm_t comm, cudaStream_t stream) {
-    void*   nccl_handle = dlopen("libnccl.so.2", RTLD_LAZY);
-    static auto real = (ncclResult_t (*)(const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t)) dlsym(nccl_handle, "ncclAllReduce");
-    dlclose(nccl_handle);
+    // void*   nccl_handle = dlopen("libnccl.so.2", RTLD_LAZY);
+    static auto real = (ncclResult_t (*)(const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t)) dlsym(RTLD_NEXT, "ncclAllReduce");
+    // dlclose(nccl_handle);
+
+    char * err = dlerror();
+    if (err) {
+      fprintf(log_file, "[NCCL LOGGER] Error loading ncclAllReduce: %s\n", err);
+    } else {
+      fprintf(log_file, "[NCCL LOGGER] Loaded ncclAllReduce %p \n", real);
+    }
 
     if (!real) {
       fprintf(log_file, "[NCCL LOGGER] Failed to load real ncclAllReduce: %s\n", dlerror());
