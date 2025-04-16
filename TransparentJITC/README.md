@@ -30,3 +30,13 @@ To listen to the log, open a separate terminal and go to the directory Oobleck w
 ```bash
 tail -f cuda_trace.log
 ```
+
+Buidling NCCL Logger:
+```bash
+g++ -shared -fPIC -o libnccl_logger.so nccl_logger.cpp -I/usr/local/nccl2/include -ldl -I/usr/local/cuda/include -ldl
+```
+
+Now command is:
+```bash
+LD_PRELOAD="/home/user/open-jitc/TransparentJITC/libcuda_logger.so /home/user/open-jitc/TransparentJITC/nccl_logger.cpp" TORCH_NCCL_ASYNC_ERROR_HANDLING=0 python run_singlenode.py --tag tag --num_agents 1 --num_gpus_per_agent 1 run_gpt2.py --tp_size 1
+```
