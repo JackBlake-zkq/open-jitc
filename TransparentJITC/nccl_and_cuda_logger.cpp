@@ -115,6 +115,8 @@ extern "C" ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size
 
     if (!real) {
       fprintf(log_file, "[NCCL LOGGER] Failed to load real ncclAllReduce: %s\n", dlerror());
+    } else {
+      fprintf(log_file, "[NCCL LOGGER] Loaded real ncclAllReduce %p \n", real);
     }
 
     if (!comm || !stream) {
