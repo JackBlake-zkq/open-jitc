@@ -36,6 +36,7 @@ Buidling NCCL Logger:
 g++ -shared -fPIC -o libnccl_logger.so nccl_logger.cpp -I/usr/local/nccl2/include -ldl -I/usr/local/cuda/include -ldl
 ```
 
+
 Build combined logger:
 ```bash
 g++ -shared -fPIC -o libnccl_and_libcuda_logger.so nccl_and_cuda_logger.cpp -I/usr/local/nccl2/include -ldl -I/usr/local/cuda/include -ldl
@@ -43,5 +44,5 @@ g++ -shared -fPIC -o libnccl_and_libcuda_logger.so nccl_and_cuda_logger.cpp -I/u
 
 Now command is:
 ```bash
-LD_PRELOAD="/home/user/open-jitc/TransparentJITC/libnccl_and_libcuda_logger.so /home/user/open-jitc/TransparentJITC/nccl_logger.cpp" TORCH_NCCL_ASYNC_ERROR_HANDLING=0 python run_singlenode.py --tag tag --num_agents 1 --num_gpus_per_agent 1 run_gpt2.py --tp_size 1
+LD_PRELOAD="/home/$USER/open-jitc/TransparentJITC/libnccl_and_libcuda_logger.so" TORCH_NCCL_ASYNC_ERROR_HANDLING=0 python run_singlenode.py --tag tag --num_agents 1 --num_gpus_per_agent 1 run_gpt2.py --tp_size 1
 ```
