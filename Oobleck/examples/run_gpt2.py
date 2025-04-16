@@ -57,7 +57,7 @@ def main(
         microbatch_size=2,
         precision="bf16",
         enable_fused_normalization=False,
-        enable_flash_attention=True,
+        enable_flash_attention=False,
         fault_tolerance_threshold=1,
     )
 
