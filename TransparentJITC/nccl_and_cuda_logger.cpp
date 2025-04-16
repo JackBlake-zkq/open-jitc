@@ -114,20 +114,20 @@ extern "C" ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size
         real_ncclAllReduce = (decltype(real_ncclAllReduce)) dlsym(RTLD_DEFAULT, "ncclAllReduce");
     }
 
-    if (!real_ncclAllReduce) {
-      fprintf(log_file, "[NCCL LOGGER] Failed to load real ncclAllReduce: %s\n", dlerror());
-    }
+    // if (!real_ncclAllReduce) {
+    //   fprintf(log_file, "[NCCL LOGGER] Failed to load real ncclAllReduce: %s\n", dlerror());
+    // }
     
 
-    if (log_file) {
-        fprintf(log_file, "[NCCL] ncclAllReduce called with count: %zu\n", count);
-        fclose(log_file);
-    }
+    // if (log_file) {
+    //     fprintf(log_file, "[NCCL] ncclAllReduce called with count: %zu\n", count);
+    //     fclose(log_file);
+    // }
 
     ncclResult_t result = real_ncclAllReduce(sendbuff, recvbuff, count, datatype, op, comm, stream);
-    if (log_file) {
-        fprintf(log_file, "[NCCL] ncclAllReduce result: %d\n", result);
-        fflush(log_file);
-    }
+    // if (log_file) {
+    //     fprintf(log_file, "[NCCL] ncclAllReduce result: %d\n", result);
+    //     fflush(log_file);
+    // }
     return result;
 }
