@@ -111,7 +111,7 @@ extern "C" ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size
                                       ncclDataType_t datatype, ncclRedOp_t op,
                                       ncclComm_t comm, cudaStream_t stream) {
     if (!real_ncclAllReduce) {
-        real_ncclAllReduce = (decltype(real_ncclAllReduce)) dlsym(RTLD_NEXT, "ncclAllReduce");
+        real_ncclAllReduce = (decltype(real_ncclAllReduce)) dlsym(RTLD_DEFAULT, "ncclAllReduce");
     }
 
     if (!real_ncclAllReduce) {
