@@ -75,11 +75,12 @@
             handlePreOptStepTransientError(); \
             return cudaSuccess; \
         } \
-        if(#func_name == cudaMalloc) { \
-            handleCudaMalloc(devPtr, size); \
-        } else if(#func_name == cudaFree) { \
-            handleCudaFree(devPtr); \
-        } \
+        #if func_name == cudaMalloc
+        handleCudaMalloc(devPtr, size); \
+        #endif
+        #if #func_name == cudaFree
+        handleCudaFree(devPtr); \
+        #endif
         return result; \
 	}
 
