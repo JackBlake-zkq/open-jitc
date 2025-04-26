@@ -1,6 +1,6 @@
 LIBTORCH_CUDA_SO ?= $(shell find / -name 'libtorch_cuda.so' | head -n 1)
 CUDA_INCLUDE_PATH ?= /usr/local/cuda/include
-NCCL_INCLUDE_PATH ?= /usr/local/nccl/include
+NCCL_INCLUDE_PATH ?= /usr/local/nccl2/lib
 TRACK_CUDA ?= 1
 TRACK_NCCL ?= 1
 
