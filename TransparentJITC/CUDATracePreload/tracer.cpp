@@ -87,6 +87,9 @@ bool inOptStep = false;
 struct Allocation {
     uintptr_t addr;
     size_t size;
+    bool operator<(const Allocation& other) const {
+        return addr < other.addr;
+    }
 };
 std::set<Allocation> startOfBatchState;
 std::set<Allocation> withinBatchState;
