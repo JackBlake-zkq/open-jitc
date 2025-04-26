@@ -107,7 +107,7 @@ void my_init() {
     sprintf(path, LOG_PATH "log_%d", deviceID);
     log_file = fopen(path, "w");
 
-    char * app_log_path[256];
+    char app_log_path[256];
     sprintf(app_log_path, "/tmp/app_%d", deviceID);
     app_log_file = fopen(app_log_path, "r");
 
