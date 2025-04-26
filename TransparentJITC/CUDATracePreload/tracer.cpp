@@ -199,7 +199,7 @@ void checkAppLog() {
     }
 }
 
-void noop{}
+void noop(){}
 
 #if TRACK_CUDA
 CREATE_HOOKED_CUDA_FUNCTION(
