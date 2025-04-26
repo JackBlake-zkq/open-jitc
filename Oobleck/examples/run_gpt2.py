@@ -52,7 +52,7 @@ def main(
     warmup_faction: float,
     tp_size: int,
 ):
-    log_file_for_proxy = open(f"/tmp/user_code_{torch.cuda.current_device()}.log", "w")
+    log_file_for_proxy = open(f"/tmp/app_{torch.cuda.current_device()}.log", "w")
 
     plugin = OobleckPlugin(
         tp_size=tp_size,

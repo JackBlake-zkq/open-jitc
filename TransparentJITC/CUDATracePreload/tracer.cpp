@@ -24,9 +24,6 @@
 #ifndef LOG_PATH
 #define LOG_PATH "log/"
 #endif
-#ifndef APP_LOG_PATH
-#error "Path to app log not defined"
-#endif
 
 #ifndef LIBTORCH_CUDA_PATH
 #error "Path to libtorch_cuda.so not defined"
@@ -110,7 +107,9 @@ void my_init() {
     sprintf(path, LOG_PATH "log_%d", deviceID);
     log_file = fopen(path, "w");
 
-    app_log_file = fopen(APP_LOG_PATH, "r");
+    char * app_log_path[256];
+    sprintf(app_log_path, "/tmp/app_%d", deviceID);
+    app_log_file = fopen(app_log_path, "r");
 
     handle = dlopen(LIBTORCH_CUDA_PATH, RTLD_LAZY);
 }
