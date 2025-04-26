@@ -162,14 +162,14 @@ void handlePreOptStepTransientError() {
 }
 
 
-void handleCudaMalloc(const void** devPtr, size_t size) {
+void handleCudaMalloc(void** devPtr, size_t size) {
     std::set<Allocation> * targetSet = inBatch ? &withinBatchState : &startOfBatchState;
     Allocation alloc;
     alloc.addr = reinterpret_cast<uintptr_t>(*devPtr);
     alloc.size = size;
     targetSet->insert(alloc);
 }
-void handleCudaFree(const void* devPtr) {
+void handleCudaFree(void* devPtr) {
     std::set<Allocation> * targetSet = inBatch ? &withinBatchState : &startOfBatchState;
     Allocation alloc;
     alloc.addr = reinterpret_cast<uintptr_t>(devPtr);
