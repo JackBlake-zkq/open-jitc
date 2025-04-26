@@ -77,7 +77,7 @@
     CREATE_HOOKED_CUDA_FUNCTION_BASE(return_type, func_name, args, arg_types, arg_names, /* no pre-return hook */ , __VA_ARGS__)
 
 #define CREATE_HOOKED_CUDA_FUNCTION_MALLOC(args, arg_types, arg_names, ...) \
-    CREATE_HOOKED_CUDA_FUNCTION_BASE(cudaError_t, cudaMalloc, args, arg_types, arg_names, handleCudaMalloc(*devPtr, size);, __VA_ARGS__)
+    CREATE_HOOKED_CUDA_FUNCTION_BASE(cudaError_t, cudaMalloc, args, arg_types, arg_names, handleCudaMalloc(devPtr, size);, __VA_ARGS__)
 
 #define CREATE_HOOKED_CUDA_FUNCTION_FREE(args, arg_types, arg_names, ...) \
     CREATE_HOOKED_CUDA_FUNCTION_BASE(cudaError_t, cudaFree, args, arg_types, arg_names, handleCudaFree(devPtr);, __VA_ARGS__)
