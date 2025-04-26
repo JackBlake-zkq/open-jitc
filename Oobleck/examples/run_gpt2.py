@@ -7,6 +7,7 @@ from loguru import logger
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
+import torch
 from transformers import (
     AutoConfig,
     GPT2LMHeadModel,
@@ -51,6 +52,8 @@ def main(
     warmup_faction: float,
     tp_size: int,
 ):
+    log_file_for_proxy = open(f"/tmp/user_code_{torch.cuda.current_device()}.log", "w")
+
     plugin = OobleckPlugin(
         tp_size=tp_size,
         global_batch_size=global_batch_size,
@@ -103,6 +106,11 @@ def main(
         lr_scheduler=lr_scheduler,
     )
 
+    # for name, param in model.named_parameters():
+    #     if param.is_cuda:
+    #         log_file_for_proxy.write(f"Param:{param.data_ptr()},{param.element_size() * param.nelement()}\n")
+    #         log_file_for_proxy.flush()
+
     # Train model
     model.train()
     optimizer.zero_grad()
@@ -119,6 +127,8 @@ def main(
             disable=not (engine.is_master or is_pp_last_stage),
         ) as pbar:
             for _ in pbar:
+                log_file_for_proxy.write("Batch started\n")
+                log_file_for_proxy.flush()
                 outputs = engine.execute(
                     dataloader_iter,
                     model,
@@ -141,6 +151,8 @@ def main(
                     loss = outputs["loss"]
                     pbar.set_postfix({"loss": loss.item()})
 
+                log_file_for_proxy.write("Optimizer Step\n")
+                log_file_for_proxy.flush()
                 optimizer.step()
                 optimizer.zero_grad()
                 lr_scheduler.step()

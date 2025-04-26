@@ -1,11 +1,16 @@
+#include <cstdlib>
 #include <dlfcn.h>
 #include <stdio.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <string>
 #include <sstream>
 #include <functional>
 #include <atomic>
+#include <iostream>
+#include <fstream>
+#include <set>
 
 #if TRACK_CUDA
 #include <cuda_runtime.h>
@@ -19,6 +24,10 @@
 #ifndef LOG_PATH
 #define LOG_PATH "log/"
 #endif
+#ifndef APP_LOG_PATH
+#error "Path to app log not defined"
+#endif
+
 #ifndef LIBTORCH_CUDA_PATH
 #error "Path to libtorch_cuda.so not defined"
 #endif
@@ -30,8 +39,8 @@
 		original_##func_name = (return_type (*) arg_types)dlsym(handle, #func_name); \
 		int deviceID; \
 		cudaGetDevice(&deviceID); \
-		print_str("[DEVICE "); printIfPrintable(deviceID); \
-	        print_str("] " #func_name " called with arguments: "); \
+        checkAppLog(); \
+	    print_str(#func_name ":"); \
 		EXPAND_ARGS arg_names \
 		print_str("\n");\
                 do { \
@@ -51,8 +60,8 @@
 		original_##func_name = (return_type (*) arg_types)dlsym(RTLD_NEXT, #func_name); \
 		int deviceID; \
 		cudaGetDevice(&deviceID); \
-		print_str("[DEVICE "); printIfPrintable(deviceID); \
-	        print_str("] " #func_name " called with arguments: "); \
+        checkAppLog(); \
+		print_str(#func_name ":"); \
 		EXPAND_ARGS arg_names \
 		print_str("\n");\
                 do { \
@@ -61,20 +70,46 @@
                       func(); \
                     } \
                 } while(0); \
-		return original_##func_name arg_names; \
+		cudaError_t result = original_##func_name arg_names; \
+        if(isPreOptStepTrainsientError(result)) { \
+            handlePreOptStepTransientError(); \
+            return cudaSuccess; \
+        } \
+        if(#func_name == cudaMalloc) { \
+            handleCudaMalloc(devPtr, size); \
+        } else if(#func_name == cudaFree) { \
+            handleCudaFree(devPtr); \
+        } \
+        return result; \
 	}
+
 #endif
 
 void *handle;
 FILE *log_file;
+FILE *app_log_file;
+char path[256];
+bool inBatch = false;
+bool inOptStep = false;
+struct Allocation {
+    uintptr_t addr;
+    size_t size;
+};
+std::set<Allocation> startOfBatchState;
+std::set<Allocation> withinBatchState;
+bool noopAll = false;
+
 
 __attribute__((constructor))
 void my_init() {
     int pid = getpid();
-    char path[256];
 
-    sprintf(path, LOG_PATH "log_%d", pid);
+    int deviceID;
+    cudaGetDevice(&deviceID);
+    sprintf(path, LOG_PATH "log_%d", deviceID);
     log_file = fopen(path, "w");
+
+    app_log_file = fopen(APP_LOG_PATH, "r");
 
     handle = dlopen(LIBTORCH_CUDA_PATH, RTLD_LAZY);
 }
@@ -94,6 +129,88 @@ typename std::enable_if<std::is_arithmetic<T>::value>::type printIfPrintable(con
 // Overload for non-printable types
 template<typename T>
 typename std::enable_if<!std::is_arithmetic<T>::value>::type printIfPrintable(const T& value) {
+}
+
+bool isPreOptStepTrainsientError(cudaError_t result) {
+    if(inOptStep) {
+        return false;
+    }
+    return rand() < 0.001;
+}
+
+void replayLog() {
+    // std::ifstream slog_file(path);
+    // std::string line;
+    // while (std::getline(slog_file, line)) {
+    //     std::string funcName = line.substr(0,line.find_first_of(":"));
+    //     std::string args = line.substr(line.find_first_of(":")+1);
+    //     // func = dlsym(RTLD_NEXT, funcName);
+
+    // }
+    // slog_file.close();
+    fprintf(log_file, "Replay log\n");
+    printf("Replay log\n");
+}
+
+void handlePreOptStepTransientError() {
+    // fprintf(log_file, "Transient error occurred\n");
+    // fflush(log_file);
+    auto realCudaFree = (cudaError_t (*)(void *)) dlsym(handle, "cudaFree");
+    for(auto it = withinBatchState.begin(); it != withinBatchState.end(); ++it) {
+        uintptr_t addr = it->addr;
+        size_t size = it->size;
+        void *ptr = reinterpret_cast<void*>(addr);
+        realCudaFree(ptr);
+        withinBatchState.erase(it);
+    }
+    replayLog();
+}
+
+
+void handleCudaMalloc(const void** devPtr, size_t size) {
+    std::set<Allocation> * targetSet = inBatch ? &withinBatchState : &startOfBatchState;
+    Allocation alloc;
+    alloc.addr = reinterpret_cast<uintptr_t>(*devPtr);
+    alloc.size = size;
+    targetSet->insert(alloc);
+}
+void handleCudaFree(const void* devPtr) {
+    std::set<Allocation> * targetSet = inBatch ? &withinBatchState : &startOfBatchState;
+    Allocation alloc;
+    alloc.addr = reinterpret_cast<uintptr_t>(devPtr);
+    auto it = targetSet->find(alloc);
+    if (it != targetSet->end()) {
+        targetSet->erase(it);
+    }
+}
+
+void clearLog() {
+    fclose(log_file);
+    log_file = fopen(path, "w");
+    if (log_file == NULL) {
+        fprintf(stderr, "Error opening log file: %s\n", path);
+        return;
+    }
+}
+
+void checkAppLog() {
+    char line[256];
+    while (fgets(line, sizeof(line), app_log_file)) {
+        if (strstr(line, "Batch started") != NULL) {
+            printf("Batch started\n");
+            inOptStep = false;
+            inBatch = true;
+            clearLog();
+        } else if (strstr(line, "Optimizer step") != NULL) {
+            printf("Optimizer step\n");
+            inOptStep = true;
+        } 
+        // else if(strstr(line, "Batch finished") != NULL) {
+        //     printf("Batch finished\n");
+        //     inOptStep = false;
+        //     inBatch = false;
+        // }
+    }
 }
 
 #if TRACK_CUDA
