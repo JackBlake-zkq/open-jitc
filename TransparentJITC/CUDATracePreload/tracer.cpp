@@ -74,7 +74,7 @@
         } \
         #if func_name == cudaMalloc \
         handleCudaMalloc(devPtr, size); \
-        #endif
+        #endif \
         #if func_name == cudaFree \
         handleCudaFree(devPtr); \
         #endif \
