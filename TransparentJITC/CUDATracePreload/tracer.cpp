@@ -265,8 +265,6 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION_FREE(
-		cudaError_t, 
-		cudaFree, 
 		(void* devPtr), 
 		(void*), 
 		(devPtr),
@@ -374,8 +372,6 @@ CREATE_HOOKED_CUDA_FUNCTION(
 std::atomic<long> total_mb_allocated(0);
 
 CREATE_HOOKED_CUDA_FUNCTION_MALLOC(
-		cudaError_t, 
-		cudaMalloc, 
 		(void** devPtr, size_t size), 
 		(void**, size_t), 
 		(devPtr, size),
