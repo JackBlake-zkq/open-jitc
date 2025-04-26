@@ -105,7 +105,7 @@ bool noopAll = false;
 
 __attribute__((constructor))
 void my_init() {
-    int pid = getpid();
+    handle = dlopen(LIBTORCH_CUDA_PATH, RTLD_LAZY);
 
     int deviceID;
     cudaGetDevice(&deviceID);
@@ -115,8 +115,6 @@ void my_init() {
     char app_log_path[256];
     sprintf(app_log_path, "/tmp/app_%d", deviceID);
     app_log_file = fopen(app_log_path, "r");
-
-    handle = dlopen(LIBTORCH_CUDA_PATH, RTLD_LAZY);
 }
 
 void print_str(const char *str)
