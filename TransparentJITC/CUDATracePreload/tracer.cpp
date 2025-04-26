@@ -51,7 +51,7 @@
 #endif
 
 #if TRACK_CUDA
-#define CREATE_HOOKED_CUDA_FUNCTION(return_type, func_name, args, arg_types, arg_names, ...) \
+#define CREATE_HOOKED_CUDA_FUNCTION(return_type, func_name, args, arg_types, arg_names,post_process_func ...) \
 	return_type func_name args { \
 		return_type (*original_##func_name) arg_types = NULL; \
 		original_##func_name = (return_type (*) arg_types)dlsym(RTLD_NEXT, #func_name); \
@@ -72,12 +72,7 @@
             handlePreOptStepTransientError(); \
             return cudaSuccess; \
         } \
-        #if func_name == cudaMalloc \
-        handleCudaMalloc(devPtr, size); \
-        #endif \
-        #if func_name == cudaFree \
-        handleCudaFree(devPtr); \
-        #endif \
+        post_process_func; \
         return result; \
 	}
 
@@ -219,7 +214,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaMemcpy,
 		(void* dst, const void* src, size_t count, cudaMemcpyKind kind),
 		(void *, const void*, size_t, cudaMemcpyKind),
-		(dst, src, count, kind)
+		(dst, src, count, kind),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -227,7 +223,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaMemcpyAsync,
 		(void* dst, const void* src, size_t count, cudaMemcpyKind kind, cudaStream_t str),
 		(void *, const void *, size_t, cudaMemcpyKind, cudaStream_t),
-		(dst, src, count, kind, str)
+		(dst, src, count, kind, str),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -235,7 +232,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaArrayGetInfo,
 		(cudaChannelFormatDesc* desc, cudaExtent* extent, unsigned int* flags, cudaArray_t array),
 		(cudaChannelFormatDesc*, cudaExtent*, unsigned int*, cudaArray_t),
-		(desc, extent, flags, array)
+		(desc, extent, flags, array),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -243,7 +241,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaArrayGetPlane, 
 		(cudaArray_t* pPlaneArray, cudaArray_t hArray, unsigned int planeIdx), 
 		(cudaArray_t*, cudaArray_t, unsigned int), 
-		(pPlaneArray, hArray, planeIdx)
+		(pPlaneArray, hArray, planeIdx),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -251,7 +250,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaArrayGetSparseProperties, 
 		(cudaArraySparseProperties* sparseProperties, cudaArray_t array), 
 		(cudaArraySparseProperties*, cudaArray_t), 
-		(sparseProperties, array)
+		(sparseProperties, array),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -259,7 +259,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaFree, 
 		(void* devPtr), 
 		(void*), 
-		(devPtr)
+		(devPtr),
+        handleCudaFree(devPtr)
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -267,7 +268,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaFreeArray, 
 		(cudaArray_t array), 
 		(cudaArray_t), 
-		(array)
+		(array),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -275,7 +277,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaFreeHost, 
 		(void* ptr), 
 		(void*), 
-		(ptr)
+		(ptr),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -283,7 +286,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaFreeMipmappedArray, 
 		(cudaMipmappedArray_t mipmappedArray), 
 		(cudaMipmappedArray_t), 
-		(mipmappedArray)
+		(mipmappedArray),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -291,7 +295,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaGetMipmappedArrayLevel, 
 		(cudaArray_t* levelArray, cudaMipmappedArray_const_t mipmappedArray, unsigned int level), 
 		(cudaArray_t*, cudaMipmappedArray_const_t, unsigned int), 
-		(levelArray, mipmappedArray, level)
+		(levelArray, mipmappedArray, level),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -299,7 +304,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaGetSymbolAddress, 
 		(void** devPtr, const void* symbol), 
 		(void**, const void*), 
-		(devPtr, symbol)
+		(devPtr, symbol),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -307,7 +313,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaGetSymbolSize, 
 		(size_t* size, const void* symbol), 
 		(size_t*, const void*), 
-		(size, symbol)
+		(size, symbol),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -315,7 +322,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaHostAlloc, 
 		(void** pHost, size_t size, unsigned int flags), 
 		(void**, size_t, unsigned int), 
-		(pHost, size, flags)
+		(pHost, size, flags),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -323,7 +331,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaHostGetDevicePointer,
 		(void** pDevice, void* pHost, unsigned int flags),
 		(void**, void*, unsigned int),
-		(pDevice, pHost, flags)
+		(pDevice, pHost, flags),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -331,7 +340,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaHostGetFlags, 
 		(unsigned int* pFlags, void* pHost), 
 		(unsigned int*, void*), 
-		(pFlags, pHost)
+		(pFlags, pHost),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -339,7 +349,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaHostRegister, 
 		(void* ptr, size_t size, unsigned int flags), 
 		(void*, size_t, unsigned int), 
-		(ptr, size, flags)
+		(ptr, size, flags),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -347,7 +358,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaHostUnregister, 
 		(void* ptr), 
 		(void*), 
-		(ptr)
+		(ptr),
+        (void)0
 		)
 
 std::atomic<long> total_mb_allocated(0);
@@ -358,6 +370,7 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		(void** devPtr, size_t size), 
 		(void**, size_t), 
 		(devPtr, size),
+        handleCudaMalloc(devPtr, size),
 		[=]() { total_mb_allocated.fetch_add(size / 1000000, std::memory_order_relaxed); } 
 		)
 
@@ -367,7 +380,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaMalloc3D, 
 		(cudaPitchedPtr* pitchedDevPtr, cudaExtent extent), 
 		(cudaPitchedPtr*, cudaExtent), 
-		(pitchedDevPtr, extent)
+		(pitchedDevPtr, extent),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -375,7 +389,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
 		cudaMalloc3DArray, 
 		(cudaArray_t* array, const cudaChannelFormatDesc* desc, cudaExtent extent, unsigned int flags), 
 		(cudaArray_t*, const cudaChannelFormatDesc*, cudaExtent, unsigned int), 
-		(array, desc, extent, flags)
+		(array, desc, extent, flags),
+        (void)0
 		)
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -383,7 +398,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMallocArray, 
     (cudaArray_t* array, const cudaChannelFormatDesc* desc, size_t width, size_t height, unsigned int flags), 
     (cudaArray_t*, const cudaChannelFormatDesc*, size_t, size_t, unsigned int), 
-    (array, desc, width, height, flags)
+    (array, desc, width, height, flags),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -391,7 +407,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMallocHost, 
     (void** ptr, size_t size), 
     (void**, size_t), 
-    (ptr, size)
+    (ptr, size),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -399,7 +416,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMallocManaged, 
     (void** devPtr, size_t size, unsigned int flags), 
     (void**, size_t, unsigned int), 
-    (devPtr, size, flags)
+    (devPtr, size, flags),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -407,7 +425,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMallocMipmappedArray, 
     (cudaMipmappedArray_t* mipmappedArray, const cudaChannelFormatDesc* desc, cudaExtent extent, unsigned int numLevels, unsigned int flags), 
     (cudaMipmappedArray_t*, const cudaChannelFormatDesc*, cudaExtent, unsigned int, unsigned int), 
-    (mipmappedArray, desc, extent, numLevels, flags)
+    (mipmappedArray, desc, extent, numLevels, flags),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -415,7 +434,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMallocPitch, 
     (void** devPtr, size_t* pitch, size_t width, size_t height), 
     (void**, size_t*, size_t, size_t), 
-    (devPtr, pitch, width, height)
+    (devPtr, pitch, width, height),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -423,7 +443,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemAdvise, 
     (const void* devPtr, size_t count, cudaMemoryAdvise advice, int device), 
     (const void*, size_t, cudaMemoryAdvise, int), 
-    (devPtr, count, advice, device)
+    (devPtr, count, advice, device),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -431,7 +452,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemAdvise_v2, 
     (const void* devPtr, size_t count, cudaMemoryAdvise advice, cudaMemLocation location), 
     (const void*, size_t, cudaMemoryAdvise, cudaMemLocation), 
-    (devPtr, count, advice, location)
+    (devPtr, count, advice, location),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -439,7 +461,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemGetInfo, 
     (size_t* free, size_t* total), 
     (size_t*, size_t*), 
-    (free, total)
+    (free, total),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -447,7 +470,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemPrefetchAsync, 
     (const void* devPtr, size_t count, int dstDevice, cudaStream_t stream), 
     (const void*, size_t, int, cudaStream_t), 
-    (devPtr, count, dstDevice, stream)
+    (devPtr, count, dstDevice, stream),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -455,7 +479,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemRangeGetAttribute, 
     (void* data, size_t dataSize, cudaMemRangeAttribute attribute, const void* devPtr, size_t count), 
     (void*, size_t, cudaMemRangeAttribute, const void*, size_t), 
-    (data, dataSize, attribute, devPtr, count)
+    (data, dataSize, attribute, devPtr, count),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -463,7 +488,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemRangeGetAttributes, 
     (void** data, size_t* dataSizes, cudaMemRangeAttribute** attributes, size_t numAttributes, const void* devPtr, size_t count), 
     (void**, size_t*, cudaMemRangeAttribute**, size_t, const void*, size_t), 
-    (data, dataSizes, attributes, numAttributes, devPtr, count)
+    (data, dataSizes, attributes, numAttributes, devPtr, count),
+    (void)0
 )
 
 
@@ -472,7 +498,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpy2D, 
     (void* dst, size_t dpitch, const void* src, size_t spitch, size_t width, size_t height, cudaMemcpyKind kind), 
     (void*, size_t, const void*, size_t, size_t, size_t, cudaMemcpyKind), 
-    (dst, dpitch, src, spitch, width, height, kind)
+    (dst, dpitch, src, spitch, width, height, kind),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -480,7 +507,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpy2DArrayToArray, 
     (cudaArray_t dst, size_t wOffsetDst, size_t hOffsetDst, cudaArray_const_t src, size_t wOffsetSrc, size_t hOffsetSrc, size_t width, size_t height, cudaMemcpyKind kind), 
     (cudaArray_t, size_t, size_t, cudaArray_const_t, size_t, size_t, size_t, size_t, cudaMemcpyKind), 
-    (dst, wOffsetDst, hOffsetDst, src, wOffsetSrc, hOffsetSrc, width, height, kind)
+    (dst, wOffsetDst, hOffsetDst, src, wOffsetSrc, hOffsetSrc, width, height, kind),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -488,7 +516,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpy2DAsync, 
     (void* dst, size_t dpitch, const void* src, size_t spitch, size_t width, size_t height, cudaMemcpyKind kind, cudaStream_t stream), 
     (void*, size_t, const void*, size_t, size_t, size_t, cudaMemcpyKind, cudaStream_t), 
-    (dst, dpitch, src, spitch, width, height, kind, stream)
+    (dst, dpitch, src, spitch, width, height, kind, stream),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -496,7 +525,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpy2DFromArray, 
     (void* dst, size_t dpitch, cudaArray_const_t src, size_t wOffset, size_t hOffset, size_t width, size_t height, cudaMemcpyKind kind), 
     (void*, size_t, cudaArray_const_t, size_t, size_t, size_t, size_t, cudaMemcpyKind), 
-    (dst, dpitch, src, wOffset, hOffset, width, height, kind)
+    (dst, dpitch, src, wOffset, hOffset, width, height, kind),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -504,7 +534,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpy2DFromArrayAsync, 
     (void* dst, size_t dpitch, cudaArray_const_t src, size_t wOffset, size_t hOffset, size_t width, size_t height, cudaMemcpyKind kind, cudaStream_t stream), 
     (void*, size_t, cudaArray_const_t, size_t, size_t, size_t, size_t, cudaMemcpyKind, cudaStream_t), 
-    (dst, dpitch, src, wOffset, hOffset, width, height, kind, stream)
+    (dst, dpitch, src, wOffset, hOffset, width, height, kind, stream),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -512,7 +543,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpy2DToArrayAsync, 
     (cudaArray_t dst, size_t wOffset, size_t hOffset, const void* src, size_t spitch, size_t width, size_t height, cudaMemcpyKind kind, cudaStream_t stream), 
     (cudaArray_t, size_t, size_t, const void*, size_t, size_t, size_t, cudaMemcpyKind, cudaStream_t), 
-    (dst, wOffset, hOffset, src, spitch, width, height, kind, stream)
+    (dst, wOffset, hOffset, src, spitch, width, height, kind, stream),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -520,7 +552,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpy3D, 
     (const cudaMemcpy3DParms* p), 
     (const cudaMemcpy3DParms*), 
-    (p)
+    (p),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -528,7 +561,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpy3DAsync, 
     (const cudaMemcpy3DParms* p, cudaStream_t stream), 
     (const cudaMemcpy3DParms*, cudaStream_t), 
-    (p, stream)
+    (p, stream),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -536,7 +570,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpy3DPeer, 
     (const cudaMemcpy3DPeerParms* p), 
     (const cudaMemcpy3DPeerParms*), 
-    (p)
+    (p),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -544,7 +579,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpy3DPeerAsync, 
     (const cudaMemcpy3DPeerParms* p, cudaStream_t stream), 
     (const cudaMemcpy3DPeerParms*, cudaStream_t), 
-    (p, stream)
+    (p, stream),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -552,7 +588,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpyFromSymbol, 
     (void* dst, const void* symbol, size_t count, size_t offset, cudaMemcpyKind kind), 
     (void*, const void*, size_t, size_t, cudaMemcpyKind), 
-    (dst, symbol, count, offset, kind)
+    (dst, symbol, count, offset, kind),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -560,7 +597,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpyFromSymbolAsync, 
     (void* dst, const void* symbol, size_t count, size_t offset, cudaMemcpyKind kind, cudaStream_t stream), 
     (void*, const void*, size_t, size_t, cudaMemcpyKind, cudaStream_t), 
-    (dst, symbol, count, offset, kind, stream)
+    (dst, symbol, count, offset, kind, stream),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -568,7 +606,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpyPeer, 
     (void* dst, int dstDevice, const void* src, int srcDevice, size_t count), 
     (void*, int, const void*, int, size_t), 
-    (dst, dstDevice, src, srcDevice, count)
+    (dst, dstDevice, src, srcDevice, count),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -576,7 +615,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpyPeerAsync, 
     (void* dst, int dstDevice, const void* src, int srcDevice, size_t count, cudaStream_t stream), 
     (void*, int, const void*, int, size_t, cudaStream_t), 
-    (dst, dstDevice, src, srcDevice, count, stream)
+    (dst, dstDevice, src, srcDevice, count, stream),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -584,7 +624,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpyToSymbol, 
     (const void* symbol, const void* src, size_t count, size_t offset, cudaMemcpyKind kind), 
     (const void*, const void*, size_t, size_t, cudaMemcpyKind), 
-    (symbol, src, count, offset, kind)
+    (symbol, src, count, offset, kind),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -592,7 +633,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemcpyToSymbolAsync, 
     (const void* symbol, const void* src, size_t count, size_t offset, cudaMemcpyKind kind, cudaStream_t stream), 
     (const void*, const void*, size_t, size_t, cudaMemcpyKind, cudaStream_t), 
-    (symbol, src, count, offset, kind, stream)
+    (symbol, src, count, offset, kind, stream),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -600,7 +642,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemset, 
     (void* devPtr, int value, size_t count), 
     (void*, int, size_t), 
-    (devPtr, value, count)
+    (devPtr, value, count),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -608,7 +651,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemset2D, 
     (void* devPtr, size_t pitch, int value, size_t width, size_t height), 
     (void*, size_t, int, size_t, size_t), 
-    (devPtr, pitch, value, width, height)
+    (devPtr, pitch, value, width, height),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -616,7 +660,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemset2DAsync, 
     (void* devPtr, size_t pitch, int value, size_t width, size_t height, cudaStream_t stream), 
     (void*, size_t, int, size_t, size_t, cudaStream_t), 
-    (devPtr, pitch, value, width, height, stream)
+    (devPtr, pitch, value, width, height, stream),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -624,7 +669,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemset3D, 
     (cudaPitchedPtr pitchedDevPtr, int value, cudaExtent extent), 
     (cudaPitchedPtr, int, cudaExtent), 
-    (pitchedDevPtr, value, extent)
+    (pitchedDevPtr, value, extent),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -632,7 +678,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMemset3DAsync, 
     (cudaPitchedPtr pitchedDevPtr, int value, cudaExtent extent, cudaStream_t stream), 
     (cudaPitchedPtr, int, cudaExtent, cudaStream_t), 
-    (pitchedDevPtr, value, extent, stream)
+    (pitchedDevPtr, value, extent, stream),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -640,7 +687,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMipmappedArrayGetMemoryRequirements, 
     (cudaArrayMemoryRequirements* memoryRequirements, cudaMipmappedArray_t mipmap, int device), 
     (cudaArrayMemoryRequirements*, cudaMipmappedArray_t, int), 
-    (memoryRequirements, mipmap, device)
+    (memoryRequirements, mipmap, device),
+    (void)0
 )
 
 CREATE_HOOKED_CUDA_FUNCTION(
@@ -648,7 +696,8 @@ CREATE_HOOKED_CUDA_FUNCTION(
     cudaMipmappedArrayGetSparseProperties, 
     (cudaArraySparseProperties* sparseProperties, cudaMipmappedArray_t mipmap), 
     (cudaArraySparseProperties*, cudaMipmappedArray_t), 
-    (sparseProperties, mipmap)
+    (sparseProperties, mipmap),
+    (void)0
 )
 #endif
 
