@@ -105,7 +105,7 @@ bool noopAll = false;
 
 __attribute__((constructor))
 void my_init() {
-    handle = dlopen(LIBTORCH_CUDA_PATH, RTLD_LAZY);
+    handle = dlopen(LIBTORCH_CUDA_PATH, RTLD_NOW);
 
     int deviceID;
     cudaGetDevice(&deviceID);
