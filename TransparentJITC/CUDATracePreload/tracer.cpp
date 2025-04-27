@@ -110,7 +110,7 @@ void my_init() {
     auto cudaGetDevice = (cudaError_t (*)(int*)) dlsym(handle, "cudaGetDevice");
     int deviceID;
     cudaGetDevice(&deviceID);
-    sprintf(path, LOG_PATH "log_%d", deviceID);
+    sprintf(path, LOG_PATH "interceptor_%d.log", deviceID);
     log_file = fopen(path, "w");
     if (log_file == NULL) {
         fprintf(stderr, "Error opening log file: %s\n", path);
@@ -118,7 +118,7 @@ void my_init() {
     }
 
     char app_log_path[256];
-    sprintf(app_log_path, "/tmp/app_%d", deviceID);
+    sprintf(app_log_path, "/tmp/app_%d.log", deviceID);
     app_log_file = fopen(app_log_path, "r");
     if (app_log_file == NULL) {
         fprintf(stderr, "Error opening app log file: %s\n", app_log_path);
