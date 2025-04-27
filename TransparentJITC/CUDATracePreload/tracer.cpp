@@ -112,13 +112,18 @@ void my_init() {
     cudaGetDevice(&deviceID);
     sprintf(path, LOG_PATH "log_%d", deviceID);
     log_file = fopen(path, "w");
+    if (log_file == NULL) {
+        fprintf(stderr, "Error opening log file: %s\n", path);
+        return;
+    }
 
     char app_log_path[256];
     sprintf(app_log_path, "/tmp/app_%d", deviceID);
     app_log_file = fopen(app_log_path, "r");
-
-    int flags = fcntl(fileno(app_log_file), F_GETFL, 0);
-    fcntl(fileno(app_log_file), F_SETFL, flags | O_NONBLOCK);
+    if (app_log_file == NULL) {
+        fprintf(stderr, "Error opening app log file: %s\n", app_log_path);
+        return;
+    }
 }
 
 void print_str(const char *str)
@@ -237,7 +242,6 @@ void checkAppLog() {
     //     int result = select(fd + 1, &readfds, NULL, NULL, &timeout);
 
     //     if (result == -1) {
-    //         perror("select()");
     //         return;
     //     }
 
