@@ -17,6 +17,7 @@ from torchvision import datasets, transforms
 import model as mdl  # Your VGG11
 import socket
 import subprocess
+import select
 
 # --- Configuration ---
 torch.set_num_threads(4)
@@ -52,7 +53,7 @@ def master_send_failure_to_clients():
 def master_recv_and_forward_failures():
     
     global connections
-    ready, _, _ = socket.select.select(connections, [], [], 1)
+    ready, _, _ = select.select(connections, [], [], 1)
     for conn in ready:
         data = conn.recv(1024).decode('utf-8')
         if "failed" in data:
@@ -67,7 +68,7 @@ def send_failure_to_master():
         print("Client sent failure signal to master")
 
 def recv_failure_from_master():
-    ready, _, _ = socket.select.select([client_socket], [], [], 1)
+    ready, _, _ = select.select([client_socket], [], [], 1)
     if ready:
         data = ready[0].recv(1024).decode('utf-8')
         if "failed" in data:
