@@ -126,10 +126,12 @@ class Checkpointer:
         print("Got files from other ranks")
 
         checkpoint_fnames = os.listdir(self.cp_dir)
-        newest = checkpoint_fnames[0]
+        newest_name = checkpoint_fnames[0]
+        newest = torch.load(f"{self.cp_dir}/{newest_name}")
         for fname in checkpoint_fnames:
             checkpoint = torch.load(f"{self.cp_dir}/{fname}")
             if checkpoint['epoch'] > newest['epoch'] or checkpoint['batch_idx'] > newest['batch_idx']:
+                newest_name = fname
                 newest = checkpoint
         newest_path = f"{self.cp_dir}/newest.cp"
         os.move(f"{self.cp_dir}/{newest}", newest_path)
@@ -257,7 +259,7 @@ def run(rank, size, from_checkpoint):
     if from_checkpoint:
         if rank == 0:
             checkpointer.master_consolidate_checkpoints()
-        checkpointer.recover_state(ddp_model, optimizer)
+        epoch, batch_idx = checkpointer.recover_state(ddp_model, optimizer)
 
     stop_event = threading.Event()
     setup_watchdog(stop_event, rank)
