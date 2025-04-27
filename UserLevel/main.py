@@ -204,6 +204,7 @@ def init_process(master_ip, rank, size, backend='nccl'):
     dist.init_process_group(backend, init_method=f"tcp://{master_ip}:6585", rank=rank, world_size=size)
 
 def run(rank, size, from_checkpoint):
+    print("Using Checkpoint" if from_checkpoint else "Not using Checkpoint")
     global device
     device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
     transform_train = transforms.Compose([
