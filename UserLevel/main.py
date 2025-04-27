@@ -116,7 +116,8 @@ class Checkpointer:
     def master_consolidate_checkpoints(self):
         print("Consolidating checkpoints")
         newest_path = f"{self.cp_dir}/newest.cp"
-        os.remove(newest_path)
+        if(os.path.exists(newest_path)):
+            os.remove(newest_path)
         for i,addr in enumerate(self.addrs):
             try:
                 subprocess.run(['scp', f'{addr}:{self.cp_dir}/jit.cp', f'{self.cp_path}/jit_{i}.cp'], check=True)
