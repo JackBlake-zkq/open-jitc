@@ -50,7 +50,7 @@ def master_send_failure_to_clients(skip=[]):
         if conn in skip:
             continue
         conn.sendall("failed".encode('utf-8'))
-    print("Master sent failure signal to clients")
+    print("Master sent failure to clients")
 
 def master_recv_and_forward_failures():
     global connections, checkpointer, model, optimizer, epoch, batch_idx
@@ -65,15 +65,16 @@ def master_recv_and_forward_failures():
         if "failed" in data:
             print(f"Master received failure signal: {data}")
             master_send_failure_to_clients(skip=[conn])
-            print("Master notifying main thread of failure")
+            print("Checkpointing state")
             checkpointer.checkpoint_state(model, optimizer, epoch, batch_idx)
+            print("Killing process")
             os.kill(os.getpid(), signal.SIGKILL)
         
 def send_failure_to_master():
     global client_socket
     if client_socket:
         client_socket.sendall("failed".encode('utf-8'))
-        print("Client sent failure signal to master")
+        print("Client sent failure to master")
 
 def recv_failure_from_master():
     global checkpointer, model, optimizer, epoch, batch_idx, client_socket
@@ -113,13 +114,15 @@ class Checkpointer:
         self.addrs = addrs
 
     def master_consolidate_checkpoints(self):
+        print("Consolidating checkpoints")
         newest_path = f"{self.cp_dir}/newest.cp"
         os.remove(newest_path)
         for i,addr in enumerate(self.addrs):
             try:
                 subprocess.run(['scp', f'{addr}:{self.cp_dir}/jit.cp', f'{self.cp_path}/jit_{i}.cp'], check=True)
             except subprocess.CalledProcessError as e:
-                print(f"Error during scp: {e}") 
+                print(f"Error during scp: {e}")
+        print("Got files from other ranks")
 
         checkpoint_fnames = os.listdir(self.cp_dir)
         newest = checkpoint_fnames[0]
@@ -129,12 +132,16 @@ class Checkpointer:
                 newest = checkpoint
         newest_path = f"{self.cp_dir}/newest.cp"
         os.move(f"{self.cp_dir}/{newest}", newest_path)
+
+        print("Found best checkpoint")
     
         for addr in self.addrs:
             try:
                 subprocess.run(['scp', newest_path, f'{addr}:{newest_path}'], check=True)
             except subprocess.CalledProcessError as e:
                 print(f"Error during scp: {e}")
+
+        print("Sent best checkpoint to other ranks")
         
 
     def checkpoint_state(self, model, optimizer, epoch, batch_idx):
@@ -147,6 +154,7 @@ class Checkpointer:
         }, path)
 
     def recover_state(self, model, optimizer):
+        print("Recovering state")
         path = f"{self.cp_dir}/newest.cp"
         while not os.path.exists(path):
             time.sleep(1)
