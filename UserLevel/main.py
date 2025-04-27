@@ -50,14 +50,16 @@ def master_send_failure_to_clients():
         print("Master sent failure signal to clients")
 
 def master_recv_and_forward_failures():
+    
     global connections
-    for conn in connections:
+    ready, _, _ = socket.select.select(connections, [], [], 1)
+    for conn in ready:
         data = conn.recv(1024).decode('utf-8')
         if "failed" in data:
             print(f"Master received failure signal: {data}")
             master_send_failure_to_clients()
             notify_main_thread_of_failure()
-
+        
 def send_failure_to_master():
     global client_socket
     if client_socket:
@@ -65,9 +67,9 @@ def send_failure_to_master():
         print("Client sent failure signal to master")
 
 def recv_failure_from_master():
-    global client_socket
-    if client_socket:
-        data = client_socket.recv(1024).decode('utf-8')
+    ready, _, _ = socket.select.select([client_socket], [], [], 1)
+    if ready:
+        data = ready[0].recv(1024).decode('utf-8')
         if "failed" in data:
             notify_main_thread_of_failure()
 
@@ -264,7 +266,7 @@ if __name__ == "__main__":
             print(f"Connected to node {i} at {addr}")
             addrs.append(addr)
             connections.append(client_socket)
-            client_socket.setblocking(False)
+            # client_socket.setblocking(False)
     else:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         print(f"Connecting to master at {args.master_ip}...")
