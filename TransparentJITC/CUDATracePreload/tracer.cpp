@@ -57,7 +57,7 @@
 		EXPAND_ARGS arg_names \
 		print_str("\n");\
         checkAppLog(); \
-		cudaError_t result = original_##func_name arg_names; \
+	cudaError_t result = original_##func_name arg_names; \
         if(isPreOptStepTrainsientError(result)) { \
             handlePreOptStepTransientError(); \
             return cudaSuccess; \
@@ -127,16 +127,33 @@ void print_str(const char *str)
 	fprintf(log_file, "%s", str);
 }
 
-template<typename T>
-typename std::enable_if<std::is_arithmetic<T>::value>::type printIfPrintable(const T& value) {
-    std::stringstream ss;
-    ss << value << " ";
-    fprintf(log_file, "%s", ss.str().c_str());
-}
+template<typename...> using void_t = void;
 
-// Overload for non-printable types
+// Use to ensure variable is streamable
+template<typename T, typename = void>
+struct is_streamable : std::false_type {};
+
 template<typename T>
-typename std::enable_if<!std::is_arithmetic<T>::value>::type printIfPrintable(const T& value) {
+struct is_streamable<
+    T,
+    void_t< decltype(std::declval<std::ostream&>() << std::declval<T>()) >
+> : std::true_type {};
+
+// Update printIfPrintable to ensure it works on all datatypes
+template<typename T>
+void printIfPrintable(const T& value) {
+    std::ostringstream ss;
+    if constexpr (is_streamable<T>::value) {
+        // data types with <<operator>>
+        ss << value;
+    }
+    else {
+        // Print address otherwise
+        ss << static_cast<const void*>(&value);
+    }
+    
+    ss << ' ';
+    fprintf(log_file, "%s", ss.str().c_str());
 }
 
 bool isPreOptStepTrainsientError(cudaError_t result) {
