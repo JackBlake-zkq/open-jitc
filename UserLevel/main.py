@@ -18,6 +18,7 @@ import model as mdl  # Your VGG11
 import socket
 import subprocess
 import select
+import shutil
 
 # --- Configuration ---
 torch.set_num_threads(4)
@@ -134,8 +135,7 @@ class Checkpointer:
                 newest_name = fname
                 newest = checkpoint
         newest_path = f"{self.cp_dir}/newest.cp"
-        os.move(f"{self.cp_dir}/{newest}", newest_path)
-
+        shutil.copy(f"{self.cp_dir}/{newest}", newest_path)
         print("Found best checkpoint")
     
         for addr in self.addrs:
