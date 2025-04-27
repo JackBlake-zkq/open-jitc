@@ -120,7 +120,7 @@ class Checkpointer:
             os.remove(newest_path)
         for i,addr in enumerate(self.addrs):
             try:
-                subprocess.run(['scp', f'{addr}:{self.cp_dir}/jit.cp', f'{self.cp_path}/jit_{i}.cp'], check=True)
+                subprocess.run(['scp', f'{addr}:{self.cp_dir}/jit.cp', f'{self.cp_dir}/jit_{i}.cp'], check=True)
             except subprocess.CalledProcessError as e:
                 print(f"Error during scp: {e}")
         print("Got files from other ranks")
