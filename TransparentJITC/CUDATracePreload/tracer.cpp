@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <set>
+#include <fcntl.h>
 
 #if TRACK_CUDA
 #include <cuda_runtime.h>
@@ -115,6 +116,9 @@ void my_init() {
     char app_log_path[256];
     sprintf(app_log_path, "/tmp/app_%d", deviceID);
     app_log_file = fopen(app_log_path, "r");
+
+    int flags = fcntl(fileno(app_log_file), F_GETFL, 0);
+    fcntl(fileno(app_log_file), F_SETFL, flags | O_NONBLOCK);
 }
 
 void print_str(const char *str)
@@ -198,21 +202,28 @@ void clearLog() {
 
 void checkAppLog() {
     char line[256];
-    while (fgets(line, sizeof(line), app_log_file)) {
-        if (strstr(line, "Batch started") != NULL) {
-            printf("Batch started\n");
-            inOptStep = false;
-            inBatch = true;
-            clearLog();
-        } else if (strstr(line, "Optimizer step") != NULL) {
-            printf("Optimizer step\n");
-            inOptStep = true;
-        } 
-        // else if(strstr(line, "Batch finished") != NULL) {
-        //     printf("Batch finished\n");
-        //     inOptStep = false;
-        //     inBatch = false;
-        // }
+    while (1) {
+        // Check if the file descriptor is ready for reading
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(fileno(app_log_file), &readfds);
+
+        // Use select() to wait for the file to become ready (non-blocking)
+        struct timeval timeout = {0, 0};  // No wait, non-blocking
+        int result = select(fileno(app_log_file) + 1, &readfds, NULL, NULL, &timeout);
+        
+        if (result <= 0) return;
+        if (fgets(line, sizeof(line), app_log_file)) {
+            if (strstr(line, "Batch started") != NULL) {
+                printf("Batch started\n");
+                inOptStep = false;
+                inBatch = true;
+                clearLog();
+            } else if (strstr(line, "Optimizer step") != NULL) {
+                printf("Optimizer step\n");
+                inOptStep = true;
+            }
+        }
     }
 }
 
