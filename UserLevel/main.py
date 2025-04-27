@@ -206,7 +206,7 @@ def init_process(master_ip, rank, size, backend='nccl'):
 def run(rank, size, from_checkpoint):
     print("Using Checkpoint" if from_checkpoint else "Not using Checkpoint")
     global device
-    device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(f"cuda:{rank}" if torch.cuda.is_available() else "cpu")
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
