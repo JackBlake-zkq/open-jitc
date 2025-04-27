@@ -37,8 +37,8 @@
 		original_##func_name = (return_type (*) arg_types)dlsym(handle, #func_name); \
 		int deviceID; \
 		cudaGetDevice(&deviceID); \
-        checkAppLog(); \
 	    print_str(#func_name ":"); \
+        checkAppLog(); \
 		EXPAND_ARGS arg_names \
 		print_str("\n");\
 		return original_##func_name arg_names; \
@@ -53,10 +53,10 @@
 		original_##func_name = (return_type (*) arg_types)dlsym(RTLD_NEXT, #func_name); \
 		int deviceID; \
 		cudaGetDevice(&deviceID); \
-        checkAppLog(); \
 		print_str(#func_name ":"); \
 		EXPAND_ARGS arg_names \
 		print_str("\n");\
+        checkAppLog(); \
         do { \
             std::function<void()> funcs[] = {__VA_ARGS__}; \
             for (auto& func : funcs) { \
