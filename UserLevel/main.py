@@ -43,6 +43,7 @@ signal.signal(signal.SIGUSR1, handle_sigusr1)
 
 def notify_main_thread_of_failure():
     os.kill(os.getpid(), signal.SIGUSR1)
+    print("Notified main thread of failure")
 
 def master_send_failure_to_clients(skip=[]):
     global connections
