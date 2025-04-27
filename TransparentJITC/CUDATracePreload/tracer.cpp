@@ -57,12 +57,6 @@
 		EXPAND_ARGS arg_names \
 		print_str("\n");\
         checkAppLog(); \
-        do { \
-            std::function<void()> funcs[] = {__VA_ARGS__}; \
-            for (auto& func : funcs) { \
-                func(); \
-            } \
-        } while(0); \
 		cudaError_t result = original_##func_name arg_names; \
         if(isPreOptStepTrainsientError(result)) { \
             handlePreOptStepTransientError(); \
