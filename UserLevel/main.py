@@ -135,7 +135,7 @@ class Checkpointer:
                 newest_name = fname
                 newest = checkpoint
         newest_path = f"{self.cp_dir}/newest.cp"
-        shutil.copy(f"{self.cp_dir}/{newest}", newest_path)
+        shutil.copy(f"{self.cp_dir}/{newest_name}", newest_path)
         print("Found best checkpoint")
     
         for addr in self.addrs:
