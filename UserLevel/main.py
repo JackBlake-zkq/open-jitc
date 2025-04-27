@@ -259,13 +259,17 @@ if __name__ == "__main__":
         connections = []
         addrs = []
         for i in range(1, args.num_nodes):
+            print(f"Waiting for connection from node {i}...")   
             client_socket, addr = server_socket.accept()
+            print(f"Connected to node {i} at {addr}")
             addrs.append(addr)
             connections.append(client_socket)
             client_socket.setblocking(False)
     else:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(f"Connecting to master at {args.master_ip}...")
         client_socket.connect((args.master_ip, 18080))
+        print(f"Connected to master at {args.master_ip}")
         client_socket.setblocking(False)
 
 
