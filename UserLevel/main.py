@@ -30,21 +30,19 @@ jit_checkpoint_dir = "/tmp/jit_checkpoints"
 os.makedirs("output", exist_ok=True)
 os.makedirs(jit_checkpoint_dir, exist_ok=True)
 
+in_opt_step = False
+checkpointer, model, optimizer, epoch, batch_idx = None, None, None, 0, 0
+
 # --- Globals for signal handling ---
-interrupted_by_sigusr1 = False
+# interrupted_by_sigusr1 = False
 
-def handle_sigusr1(signum, frame):
-        global interrupted_by_sigusr1
-        interrupted_by_sigusr1 = True
-        print("Received SIGUSR1, triggering checkpoint")
-        raise RuntimeError("Checkpoint triggered")
+# def handle_sigusr1(signum, frame):
+#         global interrupted_by_sigusr1
+#         interrupted_by_sigusr1 = True
+#         print("Received SIGUSR1, triggering checkpoint")
+#         raise RuntimeError("Checkpoint triggered")
 
-signal.signal(signal.SIGUSR1, handle_sigusr1)
-
-def notify_main_thread_of_failure():
-    os.kill(os.getpid(), signal.SIGUSR1)
-    time.sleep(1)
-    print("Notified main thread of failure")
+# signal.signal(signal.SIGUSR1, handle_sigusr1)
 
 def master_send_failure_to_clients(skip=[]):
     global connections
@@ -55,7 +53,7 @@ def master_send_failure_to_clients(skip=[]):
     print("Master sent failure signal to clients")
 
 def master_recv_and_forward_failures():
-    global connections
+    global connections, checkpointer, model, optimizer, epoch, batch_idx
     ready, _, _ = select.select(connections, [], [], 1)
     for conn in ready:
         try:
@@ -68,7 +66,8 @@ def master_recv_and_forward_failures():
             print(f"Master received failure signal: {data}")
             master_send_failure_to_clients(skip=[conn])
             print("Master notifying main thread of failure")
-            notify_main_thread_of_failure()
+            checkpointer.checkpoint_state(model, optimizer, epoch, batch_idx)
+            os.kill(os.getpid(), signal.SIGKILL)
         
 def send_failure_to_master():
     global client_socket
@@ -77,23 +76,31 @@ def send_failure_to_master():
         print("Client sent failure signal to master")
 
 def recv_failure_from_master():
+    global checkpointer, model, optimizer, epoch, batch_idx, client_socket
     ready, _, _ = select.select([client_socket], [], [], 1)
     if ready:
         data = ready[0].recv(1024).decode('utf-8')
         if "failed" in data:
-            notify_main_thread_of_failure()
+            checkpointer.checkpoint_state(model, optimizer, epoch, batch_idx)
+            os.kill(os.getpid(), signal.SIGKILL)
 
 
 # --- Watchdog ---
-def setup_watchdog(rank):
+def setup_watchdog(stop_event, rank):
     def watchdog():
         global client_socket, connections
         while True:
+            if stop_event.is_set():
+                print("Stop event set!")
+                if rank == 0:
+                    master_send_failure_to_clients()
+                else:
+                    send_failure_to_master()
             if rank == 0:
                 master_recv_and_forward_failures()
             else:
                 recv_failure_from_master()
-            time.sleep(1)
+            time.sleep(0.1)
 
     watchdog_thread = threading.Thread(target=watchdog, daemon=True)
     watchdog_thread.start()
@@ -150,55 +157,45 @@ class Checkpointer:
         return checkpoint['epoch'], checkpoint['batch_idx']
 
 # --- Training ---
-def train_model(model, train_loader, optimizer, criterion, epoch, rank, checkpointer, sampler):
+def train_model(model, train_loader, optimizer, criterion, epoch, rank, stop_event, sampler):
     model.train()
-    setup_watchdog(rank)
-    sampler.set_epoch(epoch)
     start_time = time.time()
     log_iter_start = time.time()
-    global args
+    global args, in_opt_step
     try:
-        with open(f'output/{log_file_name}', 'a+') as f:
-            for batch_idx, (data, target) in enumerate(train_loader):
-                if batch_idx >= stop_iter:
-                    break
+        for batch_idx, (data, target) in enumerate(train_loader):
+            if batch_idx >= stop_iter:
+                break
 
-                data, target = data.to(device), target.to(device)
+            data, target = data.to(device), target.to(device)
 
-                output = model(data)
+            output = model(data)
 
-                loss = criterion(output, target)
+            loss = criterion(output, target)
 
-                if args.error_before_all_reduce and batch_idx == 20 and epoch == 0:
-                    raise RuntimeError("Simulated error before all_reduce")
+            if args.error_before_all_reduce and batch_idx == 20 and epoch == 0:
+                raise RuntimeError("Simulated error before all_reduce")
 
-                optimizer.zero_grad()
-                loss.backward()
+            optimizer.zero_grad()
+            loss.backward()
 
-                optimizer.step()
+            in_opt_step = True
 
-                # Logging
-                elapsed_time = time.time() - start_time
-                f.write(f"{epoch},{batch_idx + 1},{elapsed_time:.4f}\n")
-                start_time = time.time()
+            optimizer.step()
 
-                if (batch_idx + 1) % log_iter == 0 and rank == 0:
-                    iter_time = time.time() - log_iter_start
-                    print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
-                    log_iter_start = time.time()
+            in_opt_step = False
+
+            # Logging
+            elapsed_time = time.time() - start_time
+            start_time = time.time()
+
+            if (batch_idx + 1) % log_iter == 0 and rank == 0:
+                iter_time = time.time() - log_iter_start
+                print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
+                log_iter_start = time.time()
     except BaseException as e:
-        global interrupted_by_sigusr1
+        stop_event.set()
         print("Caught exception:", e)
-        print("was signal interrupted:", interrupted_by_sigusr1)
-        if not interrupted_by_sigusr1:
-            if rank == 0:
-                master_send_failure_to_clients()
-            else:
-                send_failure_to_master()
-        else:
-            print(f"Rank {rank} | Saving checkpoint...")
-            checkpointer.checkpoint_state(model, optimizer, epoch, batch_idx)
-        exit(1)
 
 
 # --- Testing ---
@@ -221,7 +218,7 @@ def init_process(master_ip, rank, size, backend='nccl'):
 
 def run(rank, size, from_checkpoint):
     print("Using Checkpoint" if from_checkpoint else "Not using Checkpoint")
-    global device
+    global device, addrs, checkpointer, model, optimizer, epoch, batch_idx
     device = torch.device(f"cuda:0" if torch.cuda.is_available() else "cpu")
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -241,18 +238,21 @@ def run(rank, size, from_checkpoint):
     sampler = DistributedSampler(train_dataset, num_replicas=size, rank=rank, seed=seed)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler=sampler, num_workers=2, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
-
+    
     model = mdl.VGG11().to(device)
     ddp_model = DDP(model, device_ids=[0] if torch.cuda.is_available() else None)
     optimizer = optim.SGD(ddp_model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0001)
     criterion = nn.CrossEntropyLoss().to(device)
 
-    global addrs
     checkpointer = Checkpointer(ddp_model, jit_checkpoint_dir, addrs)
     if from_checkpoint:
         if rank == 0:
             checkpointer.master_consolidate_checkpoints()
         checkpointer.recover_state(ddp_model, optimizer)
+
+    stop_event = threading.Event()
+    setup_watchdog(stop_event, rank)
+    sampler.set_epoch(epoch)
 
     for epoch in range(num_epochs):
         train_model(ddp_model, train_loader, optimizer, criterion, epoch, rank, checkpointer, sampler)
@@ -269,7 +269,8 @@ if __name__ == "__main__":
     parser.add_argument('--epoch', type=int, default=1)
     parser.add_argument('--stop_iter', type=int, default=40)
     parser.add_argument('--total_batch_size', type=int, default=256)
-    parser.add_argument('--error_before_all_reduce', action='store_true', default=False, help='Simulate error before all_reduce')
+    parser.add_argument('--error_before_opt_step', action='store_true', default=False, help='Simulate error before optimizer step')
+    parser.add_argument('--batch_timeout', type=int, default=10, help='Timeout for a single batch in seconds')
     parser.add_argument('--from_checkpoint', action='store_true', default=False, help='Load from checkpoint')
     args = parser.parse_args()
 
