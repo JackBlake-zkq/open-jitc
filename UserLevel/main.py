@@ -206,7 +206,7 @@ def init_process(master_ip, rank, size, backend='nccl'):
 def run(rank, size, from_checkpoint):
     print("Using Checkpoint" if from_checkpoint else "Not using Checkpoint")
     global device
-    device = torch.device(f"cuda:{rank}" if torch.cuda.is_available() else "cpu")
+    device = torch.device(f"cuda:0" if torch.cuda.is_available() else "cpu")
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
@@ -227,7 +227,7 @@ def run(rank, size, from_checkpoint):
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
 
     model = mdl.VGG11().to(device)
-    ddp_model = DDP(model, device_ids=[rank] if torch.cuda.is_available() else None)
+    ddp_model = DDP(model, device_ids=[0] if torch.cuda.is_available() else None)
     optimizer = optim.SGD(ddp_model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0001)
     criterion = nn.CrossEntropyLoss().to(device)
 
