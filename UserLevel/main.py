@@ -147,6 +147,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, checkpoi
     sampler.set_epoch(epoch)
     start_time = time.time()
     log_iter_start = time.time()
+    global args
     try:
         with open(f'output/{log_file_name}', 'a+') as f:
             for batch_idx, (data, target) in enumerate(train_loader):
@@ -158,6 +159,9 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, checkpoi
                 output = model(data)
 
                 loss = criterion(output, target)
+
+                if args.error_before_all_reduce and batch_idx == 20 and epoch == 0:
+                    raise RuntimeError("Simulated error before all_reduce")
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -173,7 +177,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, checkpoi
                     iter_time = time.time() - log_iter_start
                     print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
                     log_iter_start = time.time()
-    except RuntimeError as e:
+    except BaseException as e:
         if not interrupted_by_sigusr1:
             if rank == 0:
                 master_send_failure_to_clients()
@@ -253,6 +257,7 @@ if __name__ == "__main__":
     parser.add_argument('--epoch', type=int, default=1)
     parser.add_argument('--stop_iter', type=int, default=40)
     parser.add_argument('--total_batch_size', type=int, default=256)
+    parser.add_argument('--error_before_all_reduce', action='store_true', default=False, help='Simulate error before all_reduce')
     parser.add_argument('--from_checkpoint', action='store_true', default=False, help='Load from checkpoint')
     args = parser.parse_args()
 
