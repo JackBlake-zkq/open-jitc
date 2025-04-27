@@ -124,6 +124,8 @@ void my_init() {
         fprintf(stderr, "Error opening app log file: %s\n", app_log_path);
         return;
     }
+
+    
 }
 
 void print_str(const char *str)
@@ -206,70 +208,70 @@ void clearLog() {
 }
 
 void checkAppLog() {
-    // char line[256];
+    char line[256];
 
-    // // Ensure the file pointer is valid
-    // if (app_log_file == NULL) {
-    //     fprintf(stderr, "Error: Log file is not open.\n");
-    //     return;
-    // }
+    // Ensure the file pointer is valid
+    if (app_log_file == NULL) {
+        fprintf(stderr, "Error: Log file is not open.\n");
+        return;
+    }
 
-    // // Set the file descriptor to non-blocking mode
-    // int fd = fileno(app_log_file);
-    // if (fd == -1) {
-    //     fprintf(stderr, "Error: Invalid file descriptor.\n");
-    //     return;
-    // }
+    // Set the file descriptor to non-blocking mode
+    int fd = fileno(app_log_file);
+    if (fd == -1) {
+        fprintf(stderr, "Error: Invalid file descriptor.\n");
+        return;
+    }
 
-    // int flags = fcntl(fd, F_GETFL, 0);
-    // if (flags == -1) {
-    //     perror("fcntl(F_GETFL)");
-    //     return;
-    // }
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1) {
+        perror("fcntl(F_GETFL)");
+        return;
+    }
 
-    // if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-    //     perror("fcntl(F_SETFL)");
-    //     return;
-    // }
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        perror("fcntl(F_SETFL)");
+        return;
+    }
 
-    // while (1) {
-    //     // Set up select() to check for file readiness
-    //     fd_set readfds;
-    //     FD_ZERO(&readfds);
-    //     FD_SET(fd, &readfds);
+    while (1) {
+        // Set up select() to check for file readiness
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(fd, &readfds);
 
-    //     struct timeval timeout = {0, 0};  // No wait, non-blocking
-    //     int result = select(fd + 1, &readfds, NULL, NULL, &timeout);
+        struct timeval timeout = {0, 0};  // No wait, non-blocking
+        int result = select(fd + 1, &readfds, NULL, NULL, &timeout);
 
-    //     if (result == -1) {
-    //         return;
-    //     }
+        if (result == -1) {
+            return;
+        }
 
-    //     if (result > 0) {  // File is ready to read
-    //         if (fgets(line, sizeof(line), app_log_file)) {
-    //             // Check the content of the line
-    //             if (strstr(line, "Batch started") != NULL) {
-    //                 printf("Batch started\n");
-    //                 inOptStep = false;
-    //                 inBatch = true;
-    //                 clearLog();
-    //             } else if (strstr(line, "Optimizer step") != NULL) {
-    //                 printf("Optimizer step\n");
-    //                 inOptStep = true;
-    //             }
-    //         } else {
-    //             // If fgets fails, break the loop (or handle as necessary)
-    //             if (feof(app_log_file)) {
-    //                 break;  // End of file reached
-    //             }
-    //             perror("fgets()");
-    //             return;
-    //         }
-    //     }
+        if (result > 0) {  // File is ready to read
+            if (fgets(line, sizeof(line), app_log_file)) {
+                // Check the content of the line
+                if (strstr(line, "Batch started") != NULL) {
+                    printf("Batch started\n");
+                    inOptStep = false;
+                    inBatch = true;
+                    clearLog();
+                } else if (strstr(line, "Optimizer step") != NULL) {
+                    printf("Optimizer step\n");
+                    inOptStep = true;
+                }
+            } else {
+                // If fgets fails, break the loop (or handle as necessary)
+                if (feof(app_log_file)) {
+                    break;  // End of file reached
+                }
+                perror("fgets()");
+                return;
+            }
+        }
 
-    //     // Sleep briefly to avoid high CPU usage in the loop
-    //     usleep(100);  // 0.1 ms sleep
-    // }
+        // Sleep briefly to avoid high CPU usage in the loop
+        usleep(100);  // 0.1 ms sleep
+    }
 }
 
 
