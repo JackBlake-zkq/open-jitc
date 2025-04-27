@@ -186,6 +186,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, checkpoi
                     print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
                     log_iter_start = time.time()
     except BaseException as e:
+        global interrupted_by_sigusr1
         print("Caught exception:", e)
         print("was signal interrupted:", interrupted_by_sigusr1)
         if not interrupted_by_sigusr1:
