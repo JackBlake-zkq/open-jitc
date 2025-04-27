@@ -254,7 +254,7 @@ if __name__ == "__main__":
     client_socket = None
     if args.rank == 0:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind((args.master_ip, 8080))
+        server_socket.bind((args.master_ip, 18080))
         server_socket.listen(args.num_nodes - 1)
         connections = []
         addrs = []
@@ -265,7 +265,7 @@ if __name__ == "__main__":
             client_socket.setblocking(False)
     else:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((args.master_ip, 8080))
+        client_socket.connect((args.master_ip, 18080))
         client_socket.setblocking(False)
 
 
