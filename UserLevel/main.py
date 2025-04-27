@@ -16,6 +16,7 @@ from torch.utils.data.distributed import DistributedSampler
 from torchvision import datasets, transforms
 import model as mdl  # Your VGG11
 import socket
+import subprocess
 
 # --- Configuration ---
 torch.set_num_threads(4)
@@ -24,7 +25,7 @@ torch.manual_seed(seed)
 np.random.seed(seed)
 log_iter = 20
 device = torch.device("cpu")  # Will be overridden per rank
-jit_checkpoint_dir = "jit_checkpoints"
+jit_checkpoint_dir = "/tmp/jit_checkpoints"
 os.makedirs("output", exist_ok=True)
 os.makedirs(jit_checkpoint_dir, exist_ok=True)
 
@@ -39,44 +40,107 @@ def handle_sigusr1(signum, frame):
 
 signal.signal(signal.SIGUSR1, handle_sigusr1)
 
+def notify_main_thread_of_failure():
+    os.kill(os.getpid(), signal.SIGUSR1)
+
+def master_send_failure_to_clients():
+    global connections
+    for conn in connections:
+        conn.sendall("failed".encode('utf-8'))
+        print("Master sent failure signal to clients")
+
+def master_recv_and_forward_failures():
+    global connections
+    for conn in connections:
+        data = conn.recv(1024).decode('utf-8')
+        if "failed" in data:
+            print(f"Master received failure signal: {data}")
+            master_send_failure_to_clients()
+            notify_main_thread_of_failure()
+
+def send_failure_to_master():
+    global client_socket
+    if client_socket:
+        client_socket.sendall("failed".encode('utf-8'))
+        print("Client sent failure signal to master")
+
+def recv_failure_from_master():
+    global client_socket
+    if client_socket:
+        data = client_socket.recv(1024).decode('utf-8')
+        if "failed" in data:
+            notify_main_thread_of_failure()
+
+
 # --- Watchdog ---
-def setup_watchdog(stop_event):
+def setup_watchdog(rank):
     def watchdog():
-        while not stop_event.is_set():
+        global client_socket, connections
+        while True:
+            if rank == 0:
+                master_recv_and_forward_failures()
+            else:
+                recv_failure_from_master()
             time.sleep(1)
-            print("Watchdog triggered! Sending SIGUSR1.")
-            os.kill(os.getpid(), signal.SIGUSR1)
+
     watchdog_thread = threading.Thread(target=watchdog, daemon=True)
     watchdog_thread.start()
     return watchdog_thread
 
 class Checkpointer:
-    def __init__(self, model):
+    def __init__(self, model, cp_dir, addrs):
         self.model = model
+        self.cp_dir = cp_dir
+        self.addrs = addrs
+
+    def master_consolidate_checkpoints(self):
+        newest_path = f"{self.cp_dir}/newest.cp"
+        os.remove(newest_path)
+        for i,addr in enumerate(self.addrs):
+            try:
+                subprocess.run(['scp', f'{addr}:{self.cp_dir}/jit.cp', f'{self.cp_path}/jit_{i}.cp'], check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"Error during scp: {e}") 
+
+        checkpoint_fnames = os.listdir(self.cp_dir)
+        newest = checkpoint_fnames[0]
+        for fname in checkpoint_fnames:
+            checkpoint = torch.load(f"{self.cp_dir}/{fname}")
+            if checkpoint['epoch'] > newest['epoch'] or checkpoint['batch_idx'] > newest['batch_idx']:
+                newest = checkpoint
+        newest_path = f"{self.cp_dir}/newest.cp"
+        os.move(f"{self.cp_dir}/{newest}", newest_path)
+    
+        for addr in self.addrs:
+            try:
+                subprocess.run(['scp', newest_path, f'{addr}:{newest_path}'], check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"Error during scp: {e}")
+        
 
     def checkpoint_state(self, model, optimizer, epoch, batch_idx):
-        ckpt_path = os.path.join(jit_checkpoint_dir, "checkpoint.pt")
+        path = f"{self.cp_dir}/jit.cp"
         torch.save({
                 'model_state': model.state_dict(),
                 'optimizer_state': optimizer.state_dict(),
                 'epoch': epoch,
                 'batch_idx': batch_idx,
-                'operation_log': self.operation_log
-        }, ckpt_path)
-        return ckpt_path
+        }, path)
 
-    def recover_state(self, checkpoint_path, model, optimizer):
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+    def recover_state(self, model, optimizer):
+        path = f"{self.cp_dir}/newest.cp"
+        while not os.path.exists(path):
+            time.sleep(1)
+        checkpoint = torch.load(path, map_location=device)
         model.load_state_dict(checkpoint['model_state'])
         optimizer.load_state_dict(checkpoint['optimizer_state'])
-        self.operation_log = checkpoint['operation_log']
+        os.remove(path)
         return checkpoint['epoch'], checkpoint['batch_idx']
 
 # --- Training ---
 def train_model(model, train_loader, optimizer, criterion, epoch, rank, checkpointer, sampler):
     model.train()
-    stop_event = threading.Event()
-    watchdog = setup_watchdog(stop_event)
+    setup_watchdog(rank)
     sampler.set_epoch(epoch)
     start_time = time.time()
     log_iter_start = time.time()
@@ -86,20 +150,15 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, checkpoi
                 if batch_idx >= stop_iter:
                     break
 
-                checkpointer.log_operation('data_loader', batch_idx=batch_idx)
                 data, target = data.to(device), target.to(device)
 
-                checkpointer.log_operation('forward_pass')
                 output = model(data)
 
-                checkpointer.log_operation('loss_computation')
                 loss = criterion(output, target)
 
-                checkpointer.log_operation('backward_pass')
                 optimizer.zero_grad()
                 loss.backward()
 
-                checkpointer.log_operation('optimizer_step')
                 optimizer.step()
 
                 # Logging
@@ -112,11 +171,16 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, checkpoi
                     print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
                     log_iter_start = time.time()
     except RuntimeError as e:
-        if interrupted_by_sigusr1:
-            print(f"Rank {rank} | Saving checkpoint due to signal...")
+        if not interrupted_by_sigusr1:
+            if rank == 0:
+                master_send_failure_to_clients()
+            else:
+                send_failure_to_master()
+        else:
+            print(f"Rank {rank} | Saving checkpoint...")
             checkpointer.checkpoint_state(model, optimizer, epoch, batch_idx)
-    finally:
-        stop_event.set()
+        exit(1)
+
 
 # --- Testing ---
 def test_model(model, test_loader, criterion):
@@ -133,11 +197,10 @@ def test_model(model, test_loader, criterion):
     print(f"Test set: Average loss {test_loss/len(test_loader):.4f}, Accuracy {correct}/{len(test_loader.dataset)}")
 
 # --- DDP Environment Setup ---
-def init_process(master_ip, rank, size, fn, backend='nccl'):
+def init_process(master_ip, rank, size, backend='nccl'):
     dist.init_process_group(backend, init_method=f"tcp://{master_ip}:6585", rank=rank, world_size=size)
-    fn(rank, size)
 
-def run(rank, size):
+def run(rank, size, from_checkpoint):
     global device
     device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
     transform_train = transforms.Compose([
@@ -164,7 +227,11 @@ def run(rank, size):
     optimizer = optim.SGD(ddp_model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0001)
     criterion = nn.CrossEntropyLoss().to(device)
 
-    checkpointer = Checkpointer(ddp_model)
+    checkpointer = Checkpointer(ddp_model, jit_checkpoint_dir, addrs)
+    if from_checkpoint:
+        if rank == 0:
+            checkpointer.master_consolidate_checkpoints()
+        checkpointer.recover_state(ddp_model, optimizer)
 
     for epoch in range(num_epochs):
         train_model(ddp_model, train_loader, optimizer, criterion, epoch, rank, checkpointer, sampler)
@@ -181,15 +248,19 @@ if __name__ == "__main__":
     parser.add_argument('--epoch', type=int, default=1)
     parser.add_argument('--stop_iter', type=int, default=40)
     parser.add_argument('--total_batch_size', type=int, default=256)
+    parser.add_argument('--from_checkpoint', action='store_true', default=False, help='Load from checkpoint')
     args = parser.parse_args()
 
+    client_socket = None
     if args.rank == 0:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind((args.master_ip, 8080))
         server_socket.listen(args.num_nodes - 1)
         connections = []
+        addrs = []
         for i in range(1, args.num_nodes):
             client_socket, addr = server_socket.accept()
+            addrs.append(addr)
             connections.append(client_socket)
             client_socket.setblocking(False)
     else:
@@ -207,4 +278,5 @@ if __name__ == "__main__":
     with open(f'output/{log_file_name}', 'w') as f:
         f.write("epoch,iteration,elapsed_time\n")
 
-    init_process(args.master_ip, args.rank, args.num_nodes, run)
+    init_process(args.master_ip, args.rank, args.num_nodes)
+    run(args.rank, args.num_nodes, args.from_checkpoint)
