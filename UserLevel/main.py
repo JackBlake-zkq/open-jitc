@@ -51,11 +51,15 @@ def master_send_failure_to_clients():
         print("Master sent failure signal to clients")
 
 def master_recv_and_forward_failures():
-    
     global connections
     ready, _, _ = select.select(connections, [], [], 1)
     for conn in ready:
-        data = conn.recv(1024).decode('utf-8')
+        try:
+            data = conn.recv(1024).decode('utf-8')
+        except:
+            print("Connection closed")
+            connections.remove(conn)
+            continue
         if "failed" in data:
             print(f"Master received failure signal: {data}")
             master_send_failure_to_clients()
