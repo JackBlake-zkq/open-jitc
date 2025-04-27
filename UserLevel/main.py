@@ -230,6 +230,7 @@ def run(rank, size, from_checkpoint):
     optimizer = optim.SGD(ddp_model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0001)
     criterion = nn.CrossEntropyLoss().to(device)
 
+    global addrs
     checkpointer = Checkpointer(ddp_model, jit_checkpoint_dir, addrs)
     if from_checkpoint:
         if rank == 0:
