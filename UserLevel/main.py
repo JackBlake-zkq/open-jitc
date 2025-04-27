@@ -256,12 +256,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     client_socket = None
+    addrs = []
     if args.rank == 0:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind((args.master_ip, 18080))
         server_socket.listen(args.num_nodes - 1)
         connections = []
-        addrs = []
         for i in range(1, args.num_nodes):
             print(f"Waiting for connection from node {i}...")   
             client_socket, addr = server_socket.accept()
