@@ -44,11 +44,13 @@ signal.signal(signal.SIGUSR1, handle_sigusr1)
 def notify_main_thread_of_failure():
     os.kill(os.getpid(), signal.SIGUSR1)
 
-def master_send_failure_to_clients():
+def master_send_failure_to_clients(skip=[]):
     global connections
     for conn in connections:
+        if conn in skip:
+            continue
         conn.sendall("failed".encode('utf-8'))
-        print("Master sent failure signal to clients")
+    print("Master sent failure signal to clients")
 
 def master_recv_and_forward_failures():
     global connections
@@ -62,7 +64,8 @@ def master_recv_and_forward_failures():
             continue
         if "failed" in data:
             print(f"Master received failure signal: {data}")
-            master_send_failure_to_clients()
+            master_send_failure_to_clients(skip=[conn])
+            print("Master notifying main thread of failure")
             notify_main_thread_of_failure()
         
 def send_failure_to_master():
@@ -182,6 +185,8 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, checkpoi
                     print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
                     log_iter_start = time.time()
     except BaseException as e:
+        print("Caught exception:", e)
+        print("was signal interrupted:", interrupted_by_sigusr1)
         if not interrupted_by_sigusr1:
             if rank == 0:
                 master_send_failure_to_clients()
