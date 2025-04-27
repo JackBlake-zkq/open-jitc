@@ -255,7 +255,7 @@ def run(rank, size, from_checkpoint):
     sampler.set_epoch(epoch)
 
     for epoch in range(num_epochs):
-        train_model(ddp_model, train_loader, optimizer, criterion, epoch, rank, checkpointer, sampler)
+        train_model(ddp_model, train_loader, optimizer, criterion, epoch, rank, stop_event, sampler)
 
     if rank == 0:
         test_model(ddp_model, test_loader, criterion)
