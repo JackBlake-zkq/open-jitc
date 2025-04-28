@@ -51,7 +51,7 @@ void checkForHangs() {
     while(!allReduceHung) {
         long long lastSyncTime = *syncStartTimes.begin();
         long long currTime = currentTime();
-        printf("last sync time: %lld\n", *syncStartTimes.begin());
+        printf("last sync time: %lld currentTime %lld\n", *syncStartTimes.begin(), currTime);
         fflush(stdout);
         if(lastSyncTime != 0 && currTime - lastSyncTime > TIMEOUT) {
             allReduceHung = true;
