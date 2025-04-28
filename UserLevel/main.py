@@ -63,6 +63,7 @@ def handle_failure():
     app_log_file.flush()
     stop = True
     if not in_opt_step:
+        time.sleep(5)
         checkpoint_state()
 
 
@@ -122,6 +123,7 @@ def setup_watchdog(stop_event, rank):
                 master_recv_and_forward_failures()
             else:
                 recv_failure_from_master()
+            time.sleep(0.1)
         # with open(f'/tmp/interceptor_0.log', 'r') as f:
         #     for line in f:
         #         if "Allreduce hang detected" in line:
