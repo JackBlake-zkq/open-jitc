@@ -20,6 +20,7 @@ import subprocess
 import select
 import shutil
 import multiprocessing
+import sys
 
 # --- Configuration ---
 torch.set_num_threads(4)
@@ -183,26 +184,26 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
                 break
             if stop:
                 checkpoint_state()
-                os.exit(1)
+                sys.exit(1)
 
             data, target = data.to(device), target.to(device)
 
             if stop:
                 checkpoint_state()
-                os.exit(1)
+                sys.exit(1)
 
             output = model(data)
 
             if stop:
                 checkpoint_state()
-                os.exit(1)
+                sys.exit(1)
 
 
             loss = criterion(output, target)
 
             if stop:
                 checkpoint_state()
-                os.exit(1)
+                sys.exit(1)
 
             if args.error_before_opt_step and batch_idx == 20 and epoch == 0:
                 raise RuntimeError("Simulated error before all_reduce")
@@ -211,7 +212,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
 
             if stop:
                 checkpoint_state()
-                os.exit(1)
+                sys.exit(1)
 
 
             p = multiprocessing.Process(target=loss.backward)
@@ -222,7 +223,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
                 p.terminate()
                 p.join()
                 checkpoint_state()
-                os.exit(1)
+                sys.exit(1)
 
             optimizer.step()
 
