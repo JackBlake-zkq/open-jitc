@@ -44,15 +44,11 @@ connections = []
 raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
 
 # --- Globals for signal handling ---
-# interrupted_by_sigusr1 = False
 
-# def handle_sigusr1(signum, frame):
-#         global interrupted_by_sigusr1
-#         interrupted_by_sigusr1 = True
-#         print("Received SIGUSR1, triggering checkpoint")
-#         raise RuntimeError("Checkpoint triggered")
+def handle_sigusr1(signum, frame):
+    time.sleep(5)
 
-# signal.signal(signal.SIGUSR1, handle_sigusr1)
+signal.signal(signal.SIGUSR1, handle_sigusr1)
 
 def forcibly_kill_process():
     os.kill(os.getpid(), signal.SIGKILL)
@@ -63,6 +59,7 @@ def handle_failure():
     app_log_file.flush()
     stop = True
     if not in_opt_step:
+        os.kill(os.getpid(), signal.SIGUSR1)
         time.sleep(5)
         checkpoint_state()
 
