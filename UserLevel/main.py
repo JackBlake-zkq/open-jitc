@@ -45,6 +45,9 @@ checkpointer, model, optimizer, epoch, batch_idx, ddp_model = None, None, None, 
 
 # signal.signal(signal.SIGUSR1, handle_sigusr1)
 
+def forcibly_kill_process():
+    os.kill(os.getpid(), signal.SIGKILL)
+
 def master_send_failure_to_clients(skip=[]):
     global connections
     for conn in connections:
@@ -69,13 +72,14 @@ def master_recv_and_forward_failures():
             print("Checkpointing state")
             checkpointer.checkpoint_state(ddp_model, optimizer, epoch, batch_idx)
             print("Killing process")
-            os.kill(os.getpid(), signal.SIGKILL)
+            forcibly_kill_process()
         
 def send_failure_to_master():
     global client_socket
     if client_socket:
         client_socket.sendall("failed".encode('utf-8'))
         print("Client sent failure to master")
+
 
 def recv_failure_from_master():
     global checkpointer, ddp_model, optimizer, epoch, batch_idx, client_socket
@@ -84,7 +88,7 @@ def recv_failure_from_master():
         data = ready[0].recv(1024).decode('utf-8')
         if "failed" in data:
             checkpointer.checkpoint_state(ddp_model, optimizer, epoch, batch_idx)
-            os.kill(os.getpid(), signal.SIGKILL)
+            forcibly_kill_process()
 
 
 # --- Watchdog ---
@@ -96,8 +100,10 @@ def setup_watchdog(stop_event, rank):
                 print("Stop event set!")
                 if rank == 0:
                     master_send_failure_to_clients()
+                    forcibly_kill_process()
                 else:
                     send_failure_to_master()
+                    forcibly_kill_process()
             if rank == 0:
                 master_recv_and_forward_failures()
             else:
