@@ -31,7 +31,9 @@ jit_checkpoint_dir = "/tmp/jit_checkpoints"
 os.makedirs("output", exist_ok=True)
 os.makedirs(jit_checkpoint_dir, exist_ok=True)
 
-in_opt_step = False
+stop = False
+addrs = []
+connections = []
 checkpointer, raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, None, 0, 0, None
 
 # --- Globals for signal handling ---
@@ -57,7 +59,7 @@ def master_send_failure_to_clients(skip=[]):
     print("Master sent failure to clients")
 
 def master_recv_and_forward_failures():
-    global connections, checkpointer
+    global connections, checkpointer, stop
     ready, _, _ = select.select(connections, [], [], 1)
     for conn in ready:
         try:
@@ -69,10 +71,7 @@ def master_recv_and_forward_failures():
         if "failed" in data:
             print(f"Master received failure signal: {data}")
             master_send_failure_to_clients(skip=[conn])
-            print("Checkpointing state")
-            checkpointer.checkpoint_state()
-            print("Killing process")
-            forcibly_kill_process()
+            stop = True
         
 def send_failure_to_master():
     global client_socket
@@ -82,13 +81,13 @@ def send_failure_to_master():
 
 
 def recv_failure_from_master():
-    global checkpointer, client_socket
+    global checkpointer, client_socket, stop
     ready, _, _ = select.select([client_socket], [], [], 1)
     if ready:
         data = ready[0].recv(1024).decode('utf-8')
         if "failed" in data:
             checkpointer.checkpoint_state()
-            forcibly_kill_process()
+            stop = True
 
 
 # --- Watchdog ---
@@ -114,97 +113,112 @@ def setup_watchdog(stop_event, rank):
     watchdog_thread.start()
     return watchdog_thread
 
-class Checkpointer:
-    def __init__(self, cp_dir, addrs, model):
-        self.cp_dir = cp_dir
-        self.addrs = addrs
-        self.model = model
+def master_consolidate_checkpoints(self):
+    global jit_checkpoint_dir, addrs
+    print("Consolidating checkpoints")
+    newest_path = f"{jit_checkpoint_dir}/newest.cp"
+    if(os.path.exists(newest_path)):
+        os.remove(newest_path)
+    for i,addr in enumerate(self.addrs):
+        try:
+            subprocess.run(['scp', f'{addr[0]}:{jit_checkpoint_dir}/jit.cp', f'{jit_checkpoint_dir}/jit_{i}.cp'], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error during scp: {e}")
+    print("Got files from other ranks")
 
-    def master_consolidate_checkpoints(self):
-        print("Consolidating checkpoints")
-        newest_path = f"{self.cp_dir}/newest.cp"
-        if(os.path.exists(newest_path)):
-            os.remove(newest_path)
-        for i,addr in enumerate(self.addrs):
-            try:
-                subprocess.run(['scp', f'{addr[0]}:{self.cp_dir}/jit.cp', f'{self.cp_dir}/jit_{i}.cp'], check=True)
-            except subprocess.CalledProcessError as e:
-                print(f"Error during scp: {e}")
-        print("Got files from other ranks")
+    checkpoint_fnames = os.listdir(jit_checkpoint_dir)
+    newest_name = checkpoint_fnames[0]
+    newest = torch.load(f"{jit_checkpoint_dir}/{newest_name}")
+    for fname in checkpoint_fnames:
+        checkpoint = torch.load(f"{jit_checkpoint_dir}/{fname}")
+        if checkpoint['epoch'] > newest['epoch'] or checkpoint['batch_idx'] > newest['batch_idx']:
+            newest_name = fname
+            newest = checkpoint
+    newest_path = f"{jit_checkpoint_dir}/newest.cp"
+    print(f"Best checkpoint: {newest_name}")
+    shutil.copy(f"{jit_checkpoint_dir}/{newest_name}", newest_path)
+    print("Found best checkpoint")
 
-        checkpoint_fnames = os.listdir(self.cp_dir)
-        newest_name = checkpoint_fnames[0]
-        newest = torch.load(f"{self.cp_dir}/{newest_name}")
-        for fname in checkpoint_fnames:
-            checkpoint = torch.load(f"{self.cp_dir}/{fname}")
-            if checkpoint['epoch'] > newest['epoch'] or checkpoint['batch_idx'] > newest['batch_idx']:
-                newest_name = fname
-                newest = checkpoint
-        newest_path = f"{self.cp_dir}/newest.cp"
-        print(f"Best checkpoint: {newest_name}")
-        shutil.copy(f"{self.cp_dir}/{newest_name}", newest_path)
-        print("Found best checkpoint")
+    for addr in addrs:
+        try:
+            subprocess.run(['scp', newest_path, f'{addr[0]}:{newest_path}'], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error during scp: {e}")
+
+    print("Sent best checkpoint to other ranks")
     
-        for addr in self.addrs:
-            try:
-                subprocess.run(['scp', newest_path, f'{addr[0]}:{newest_path}'], check=True)
-            except subprocess.CalledProcessError as e:
-                print(f"Error during scp: {e}")
 
-        print("Sent best checkpoint to other ranks")
-        
+def checkpoint_state():
+    global optimizer, epoch, batch_idx, raw_model
+    print("Checkpointing state")
+    path = f"{jit_checkpoint_dir}/jit.cp"
+    torch.save({
+            'model_state': raw_model.cpu().state_dict(),
+            'optimizer_state': optimizer.state_dict(),
+            'epoch': epoch,
+            'batch_idx': batch_idx,
+    }, path)
 
-    def checkpoint_state(self):
-        global optimizer, epoch, batch_idx
-        print("got global")
-        path = f"{self.cp_dir}/jit.cp"
-        torch.save({
-                'model_state': self.model.cpu().state_dict(),
-                'optimizer_state': optimizer.state_dict(),
-                'epoch': epoch,
-                'batch_idx': batch_idx,
-        }, path)
-
-    def recover_state(self):
-        global optimizer, epoch, batch_idx
-        print("Recovering state")
-        path = f"{self.cp_dir}/newest.cp"
-        while not os.path.exists(path):
-            time.sleep(1)
-        checkpoint = torch.load(path, map_location=device)
-        self.model.load_state_dict(checkpoint['model_state'])
-        optimizer.load_state_dict(checkpoint['optimizer_state'])
-        os.remove(path)
-        return checkpoint['epoch'], checkpoint['batch_idx']
+def recover_state():
+    global jit_checkpoint_dir, raw_model, optimizer, epoch, batch_idx
+    print("Recovering state")
+    path = f"{jit_checkpoint_dir}/newest.cp"
+    while not os.path.exists(path):
+        time.sleep(1)
+    checkpoint = torch.load(path, map_location=device)
+    raw_model.load_state_dict(checkpoint['model_state'])
+    optimizer.load_state_dict(checkpoint['optimizer_state'])
+    os.remove(path)
+    return checkpoint['epoch'], checkpoint['batch_idx']
 
 # --- Training ---
-def train_model(model, train_loader, optimizer, criterion, epoch, rank, stop_event, sampler):
+def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog_stop_event, sampler):
     model.train()
     start_time = time.time()
     log_iter_start = time.time()
-    global args, in_opt_step
+    global args, stop
     try:
         for batch_idx, (data, target) in enumerate(train_loader):
             if batch_idx >= stop_iter:
                 break
+            if stop:
+                checkpoint_state()
+                break
 
             data, target = data.to(device), target.to(device)
 
+            if stop:
+                checkpoint_state()
+                break
+
             output = model(data)
 
+            if stop:
+                checkpoint_state()
+                break
+
             loss = criterion(output, target)
+
+            if stop:
+                checkpoint_state()
+                break
 
             if args.error_before_opt_step and batch_idx == 20 and epoch == 0:
                 raise RuntimeError("Simulated error before all_reduce")
 
             optimizer.zero_grad()
+
+            if stop:
+                checkpoint_state()
+                break
+
             loss.backward()
 
-            in_opt_step = True
+            if stop:
+                checkpoint_state()
+                break
 
             optimizer.step()
-
-            in_opt_step = False
 
             # Logging
             elapsed_time = time.time() - start_time
@@ -215,7 +229,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, stop_eve
                 print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
                 log_iter_start = time.time()
     except BaseException as e:
-        stop_event.set()
+        watchdog_stop_event.set()
         print("Caught exception:", e)
 
 
@@ -271,12 +285,12 @@ def run(rank, size, from_checkpoint):
             checkpointer.master_consolidate_checkpoints()
         epoch, batch_idx = checkpointer.recover_state()
 
-    stop_event = threading.Event()
-    setup_watchdog(stop_event, rank)
+    watchdog_stop_event = threading.Event()
+    setup_watchdog(watchdog_stop_event, rank)
     sampler.set_epoch(epoch)
 
     for epoch in range(num_epochs):
-        train_model(ddp_model, train_loader, optimizer, criterion, epoch, rank, stop_event, sampler)
+        train_model(ddp_model, train_loader, optimizer, criterion, epoch, rank, watchdog_stop_event, sampler)
 
     if rank == 0:
         test_model(ddp_model, test_loader, criterion)
