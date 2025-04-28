@@ -51,9 +51,9 @@ void checkForHangs() {
     while(!allReduceHung) {
         long long lastSyncTime = *syncStartTimes.begin();
         long long currTime = currentTime();
+        printf("last sync time: %lld\n", *syncStartTimes.begin());
+        fflush(stdout);
         if(lastSyncTime != 0 && currTime - lastSyncTime > TIMEOUT) {
-            printf("last sync time: %lld\n", *syncStartTimes.begin());
-            fflush(stdout);
             allReduceHung = true;
             fprintf(log_file, "Allreduce hang detected\n");
             fflush(log_file);
