@@ -36,7 +36,7 @@ FILE *log_file;
 char path[256];
 bool allReduceHung = false;
 std::multiset<long long> syncStartTimes;
-const long long TIMOUT = 1000000000000; // 10 seconds
+const long long TIMEOUT = 1e10; // 10 seconds
 
 
 long long currentTime() {
@@ -49,7 +49,7 @@ long long currentTime() {
 
 void checkForHangs() {
     while(!allReduceHung) {
-        if(currentTime() - *syncStartTimes.begin() > TIMOUT) {
+        if(currentTime() - *syncStartTimes.begin() > TIMEOUT) {
             allReduceHung = true;
             fprintf(log_file, "Allreduce hang detected\n");
             fflush(log_file);

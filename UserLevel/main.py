@@ -158,7 +158,7 @@ def checkpoint_state():
     print("Checkpointing state")
     path = f"{jit_checkpoint_dir}/jit.cp"
     torch.save({
-            'model_state': raw_model.cpu().state_dict(),
+            'model_state': raw_model.state_dict(),
             'optimizer_state': optimizer.state_dict(),
             'epoch': epoch,
             'batch_idx': batch_idx,
