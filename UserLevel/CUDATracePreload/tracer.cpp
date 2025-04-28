@@ -89,6 +89,7 @@ void my_init() {
     //     fprintf(stderr, "Error opening log file: %s\n", path);
     //     return;
     // }
+    std::remove(path);
 
     std::thread tHangChecker(checkAppLog);
     tHangChecker.detach();
