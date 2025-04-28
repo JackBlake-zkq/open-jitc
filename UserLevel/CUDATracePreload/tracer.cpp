@@ -36,7 +36,7 @@ FILE *log_file;
 char path[256];
 bool allReduceHung = false;
 std::multiset<long long> syncStartTimes;
-const long long TIMEOUT = 1e10; // 10 seconds
+const long long TIMEOUT = 1e11; // 10 seconds
 
 
 long long currentTime() {
