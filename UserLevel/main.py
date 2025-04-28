@@ -32,7 +32,7 @@ os.makedirs("output", exist_ok=True)
 os.makedirs(jit_checkpoint_dir, exist_ok=True)
 
 in_opt_step = False
-checkpointer, model, optimizer, epoch, batch_idx, ddp_model = None, None, None, 0, 0, None
+checkpointer, raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, None, 0, 0, None
 
 # --- Globals for signal handling ---
 # interrupted_by_sigusr1 = False
@@ -115,9 +115,10 @@ def setup_watchdog(stop_event, rank):
     return watchdog_thread
 
 class Checkpointer:
-    def __init__(self, cp_dir, addrs):
+    def __init__(self, cp_dir, addrs, model):
         self.cp_dir = cp_dir
         self.addrs = addrs
+        self.model = model
 
     def master_consolidate_checkpoints(self):
         print("Consolidating checkpoints")
@@ -154,24 +155,24 @@ class Checkpointer:
         
 
     def checkpoint_state(self):
-        global model, optimizer, epoch, batch_idx
+        global optimizer, epoch, batch_idx
         print("got global")
         path = f"{self.cp_dir}/jit.cp"
         torch.save({
-                'model_state': model.cpu().state_dict(),
+                'model_state': self.model.cpu().state_dict(),
                 'optimizer_state': optimizer.state_dict(),
                 'epoch': epoch,
                 'batch_idx': batch_idx,
         }, path)
 
     def recover_state(self):
-        global model, optimizer, epoch, batch_idx
+        global optimizer, epoch, batch_idx
         print("Recovering state")
         path = f"{self.cp_dir}/newest.cp"
         while not os.path.exists(path):
             time.sleep(1)
         checkpoint = torch.load(path, map_location=device)
-        model.load_state_dict(checkpoint['model_state'])
+        self.model.load_state_dict(checkpoint['model_state'])
         optimizer.load_state_dict(checkpoint['optimizer_state'])
         os.remove(path)
         return checkpoint['epoch'], checkpoint['batch_idx']
@@ -238,7 +239,7 @@ def init_process(master_ip, rank, size, backend='nccl'):
 
 def run(rank, size, from_checkpoint):
     print("Using Checkpoint" if from_checkpoint else "Not using Checkpoint")
-    global device, addrs, checkpointer, model, ddp_model, optimizer, epoch, batch_idx
+    global device, addrs, checkpointer, raw_model, ddp_model, optimizer, epoch, batch_idx
     device = torch.device(f"cuda:0" if torch.cuda.is_available() else "cpu")
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -259,16 +260,16 @@ def run(rank, size, from_checkpoint):
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler=sampler, num_workers=2, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
     
-    model = mdl.VGG11().to(device)
-    ddp_model = DDP(model, device_ids=[0] if torch.cuda.is_available() else None)
+    raw_model = mdl.VGG11().to(device)
+    ddp_model = DDP(raw_model, device_ids=[0] if torch.cuda.is_available() else None)
     optimizer = optim.SGD(ddp_model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0001)
     criterion = nn.CrossEntropyLoss().to(device)
 
-    checkpointer = Checkpointer(jit_checkpoint_dir, addrs)
+    checkpointer = Checkpointer(raw_model, jit_checkpoint_dir, addrs)
     if from_checkpoint:
         if rank == 0:
             checkpointer.master_consolidate_checkpoints()
-        epoch, batch_idx = checkpointer.recover_state(model, optimizer)
+        epoch, batch_idx = checkpointer.recover_state()
 
     stop_event = threading.Event()
     setup_watchdog(stop_event, rank)
