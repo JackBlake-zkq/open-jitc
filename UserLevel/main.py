@@ -109,10 +109,11 @@ def setup_watchdog(stop_event, rank):
         #     else:
         #         recv_failure_from_master()
         with open(f'/tmp/interceptor_0.log', 'r') as f:
-            line = f.readline() # block until a line is available (will always be "Allreduce hang detected")
-            print("Interceptor log:", line)
-            checkpoint_state()
-            forcibly_kill_process()
+            for line in f:
+                if "Allreduce hang detected" in line:
+                    print("Allreduce hang detected")
+                    checkpoint_state()
+                    forcibly_kill_process()
 
     watchdog_thread = threading.Thread(target=watchdog, daemon=True)
     watchdog_thread.start()
