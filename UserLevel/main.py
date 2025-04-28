@@ -52,63 +52,67 @@ raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
 def forcibly_kill_process():
     os.kill(os.getpid(), signal.SIGKILL)
 
-def master_send_failure_to_clients(skip=[]):
-    global connections
-    for conn in connections:
-        if conn in skip:
-            continue
-        conn.sendall("failed".encode('utf-8'))
-    print("Master sent failure to clients")
+# def master_send_failure_to_clients(skip=[]):
+#     global connections
+#     for conn in connections:
+#         if conn in skip:
+#             continue
+#         conn.sendall("failed".encode('utf-8'))
+#     print("Master sent failure to clients")
 
-def master_recv_and_forward_failures():
-    global connections, stop
-    ready, _, _ = select.select(connections, [], [], 1)
-    for conn in ready:
-        try:
-            data = conn.recv(1024).decode('utf-8')
-        except:
-            print("Connection closed")
-            connections.remove(conn)
-            continue
-        if "failed" in data:
-            print(f"Master received failure signal: {data}")
-            master_send_failure_to_clients(skip=[conn])
-            stop = True
+# def master_recv_and_forward_failures():
+#     global connections, stop
+#     ready, _, _ = select.select(connections, [], [], 1)
+#     for conn in ready:
+#         try:
+#             data = conn.recv(1024).decode('utf-8')
+#         except:
+#             print("Connection closed")
+#             connections.remove(conn)
+#             continue
+#         if "failed" in data:
+#             print(f"Master received failure signal: {data}")
+#             master_send_failure_to_clients(skip=[conn])
+#             stop = True
         
-def send_failure_to_master():
-    global client_socket
-    if client_socket:
-        client_socket.sendall("failed".encode('utf-8'))
-        print("Client sent failure to master")
+# def send_failure_to_master():
+#     global client_socket
+#     if client_socket:
+#         client_socket.sendall("failed".encode('utf-8'))
+#         print("Client sent failure to master")
 
 
-def recv_failure_from_master():
-    global client_socket, stop
-    ready, _, _ = select.select([client_socket], [], [], 1)
-    if ready:
-        data = ready[0].recv(1024).decode('utf-8')
-        if "failed" in data:
-            stop = True
+# def recv_failure_from_master():
+#     global client_socket, stop
+#     ready, _, _ = select.select([client_socket], [], [], 1)
+#     if ready:
+#         data = ready[0].recv(1024).decode('utf-8')
+#         if "failed" in data:
+#             stop = True
 
 
 # --- Watchdog ---
 def setup_watchdog(stop_event, rank):
     def watchdog():
-        global client_socket, connections
-        while True:
-            if stop_event.is_set():
-                print("Stop event set!")
-                if rank == 0:
-                    master_send_failure_to_clients()
-                    forcibly_kill_process()
-                else:
-                    send_failure_to_master()
-                    forcibly_kill_process()
-            if rank == 0:
-                master_recv_and_forward_failures()
-            else:
-                recv_failure_from_master()
-            time.sleep(0.1)
+        # global client_socket, connections
+        # while True:
+        #     if stop_event.is_set():
+        #         print("Stop event set!")
+        #         if rank == 0:
+        #             master_send_failure_to_clients()
+        #             forcibly_kill_process()
+        #         else:
+        #             send_failure_to_master()
+        #             forcibly_kill_process()
+        #     if rank == 0:
+        #         master_recv_and_forward_failures()
+        #     else:
+        #         recv_failure_from_master()
+        with open(f'/tmp/interceptor_0.log', 'r') as f:
+            line = f.readline() # block until a line is available (will always be "Allreduce hang detected")
+            print("Interceptor log:", line)
+            checkpoint_state()
+            forcibly_kill_process()
 
     watchdog_thread = threading.Thread(target=watchdog, daemon=True)
     watchdog_thread.start()
