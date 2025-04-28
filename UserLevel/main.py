@@ -183,58 +183,58 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
     start_time = time.time()
     log_iter_start = time.time()
     global args, stop
-    try:
-        for batch_idx, (data, target) in enumerate(train_loader):
-            if batch_idx >= stop_iter:
-                break
-            if stop:
-                checkpoint_state()
-                sys.exit(1)
+    # try:
+    for batch_idx, (data, target) in enumerate(train_loader):
+        if batch_idx >= stop_iter:
+            break
+        if stop:
+            checkpoint_state()
+            sys.exit(1)
 
-            data, target = data.to(device), target.to(device)
+        data, target = data.to(device), target.to(device)
 
-            if stop:
-                checkpoint_state()
-                sys.exit(1)
+        if stop:
+            checkpoint_state()
+            sys.exit(1)
 
-            output = model(data)
+        output = model(data)
 
-            if stop:
-                checkpoint_state()
-                sys.exit(1)
-
-
-            loss = criterion(output, target)
-
-            if stop:
-                checkpoint_state()
-                sys.exit(1)
-
-            if args.error_before_opt_step and batch_idx == 20 and epoch == 0:
-                raise RuntimeError("Simulated error before all_reduce")
-
-            optimizer.zero_grad()
-
-            if stop:
-                checkpoint_state()
-                sys.exit(1)
+        if stop:
+            checkpoint_state()
+            sys.exit(1)
 
 
-            loss.backward()
+        loss = criterion(output, target)
 
-            optimizer.step()
+        if stop:
+            checkpoint_state()
+            sys.exit(1)
 
-            # Logging
-            elapsed_time = time.time() - start_time
-            start_time = time.time()
+        if args.error_before_opt_step and batch_idx == 20 and epoch == 0:
+            raise RuntimeError("Simulated error before all_reduce")
 
-            if (batch_idx + 1) % log_iter == 0 and rank == 0:
-                iter_time = time.time() - log_iter_start
-                print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
-                log_iter_start = time.time()
-    except BaseException as e:
-        watchdog_stop_event.set()
-        print("Caught exception:", e)
+        optimizer.zero_grad()
+
+        if stop:
+            checkpoint_state()
+            sys.exit(1)
+
+
+        loss.backward()
+
+        optimizer.step()
+
+        # Logging
+        elapsed_time = time.time() - start_time
+        start_time = time.time()
+
+        if (batch_idx + 1) % log_iter == 0 and rank == 0:
+            iter_time = time.time() - log_iter_start
+            print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
+            log_iter_start = time.time()
+    # except BaseException as e:
+    #     watchdog_stop_event.set()
+    #     print("Caught exception:", e)
 
 
 # --- Testing ---
