@@ -159,6 +159,7 @@ class Checkpointer:
         print("got global")
         path = f"{self.cp_dir}/jit.cp"
         state_dict = {}
+        print(model)
         for name, param in model.named_parameters():
             try:
                 state_dict[name] = param.detach().cpu()
