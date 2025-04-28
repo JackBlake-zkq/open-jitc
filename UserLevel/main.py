@@ -19,6 +19,7 @@ import socket
 import subprocess
 import select
 import shutil
+import multiprocessing
 
 # --- Configuration ---
 torch.set_num_threads(4)
@@ -211,11 +212,15 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
                 checkpoint_state()
                 break
 
-            loss.backward()
-
-            if stop:
+            p = multiprocessing.Process(target=loss.backward)
+            p.start()
+            p.join(args.all_reduce_timeout)
+            if p.is_alive():
+                print("All reduce timed out")
+                p.terminate()
+                p.join()
                 checkpoint_state()
-                break
+                forcibly_kill_process()
 
             optimizer.step()
 
@@ -252,7 +257,7 @@ def init_process(master_ip, rank, size, backend='nccl'):
 
 def run(rank, size, from_checkpoint):
     print("Using Checkpoint" if from_checkpoint else "Not using Checkpoint")
-    global device, addrs, raw_model, ddp_model, optimizer, epoch, batch_idx
+    global device, addrs, checkpointer, raw_model, ddp_model, optimizer, epoch, batch_idx
     device = torch.device(f"cuda:0" if torch.cuda.is_available() else "cpu")
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -303,7 +308,7 @@ if __name__ == "__main__":
     parser.add_argument('--stop_iter', type=int, default=40)
     parser.add_argument('--total_batch_size', type=int, default=256)
     parser.add_argument('--error_before_opt_step', action='store_true', default=False, help='Simulate error before optimizer step')
-    parser.add_argument('--batch_timeout', type=int, default=10, help='Timeout for a single batch in seconds')
+    parser.add_argument('--all_reduce_timeout', type=int, default=10, help='Timeout for a single batch in seconds')
     parser.add_argument('--from_checkpoint', action='store_true', default=False, help='Load from checkpoint')
     args = parser.parse_args()
 
