@@ -55,11 +55,11 @@ void checkAppLog() {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         app_log_file->open(path);
     }
-    printf("Openned app log file %s\n", path);
     if (!app_log_file->is_open()) {
         std::cerr << "Error opening file" << std::endl;
         return;
     }
+    printf("Openned app log file %s\n", path);
     std::string line;
     while(!useAltCudaStream) {
         std::getline(*app_log_file, line);
@@ -71,6 +71,14 @@ void checkAppLog() {
             // fprintf(log_file, "Detected hang in allReduce\n");
             // fflush(log_file);
             break;
+        } else {
+            if (app_log_file->eof()) {
+                app_log_file->clear(); // Clear EOF flag
+                std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Wait a bit for new data
+            } else {
+                std::cerr << "Error reading from log file" << std::endl;
+                break;
+            }
         }
     }
 
