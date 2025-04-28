@@ -260,7 +260,7 @@ def run(rank, size, from_checkpoint):
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
     
     model = mdl.VGG11().to(device)
-    ddp_model = DDP(model, device_ids=[0] if torch.cuda.is_available() else None, broadcast_buffers=False, find_unused_parameters=True)
+    ddp_model = DDP(model, device_ids=[0] if torch.cuda.is_available() else None)
     optimizer = optim.SGD(ddp_model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0001)
     criterion = nn.CrossEntropyLoss().to(device)
 
