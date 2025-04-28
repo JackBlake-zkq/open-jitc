@@ -49,6 +49,11 @@ long long currentTime() {
 
 void checkForHangs() {
     while(!allReduceHung) {
+        if(syncStartTimes.empty()) {
+            printf("syncStartTimes is empty\n");
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
+        }
         long long lastSyncTime = *syncStartTimes.begin();
         long long currTime = currentTime();
         printf("last sync time: %lld currentTime %lld\n", *syncStartTimes.begin(), currTime);
