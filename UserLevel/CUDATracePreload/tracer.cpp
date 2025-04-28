@@ -87,6 +87,7 @@ void my_init() {
 
 
 cudaError_t cudaStreamWaitEvent(cudaStream_t stream, cudaEvent_t event, unsigned int flags) {
+    printf("cudaStreamWaitEvent called\n");
     auto original_cudaStreamWaitEvent = (cudaError_t (*)(cudaStream_t, cudaEvent_t, unsigned int))dlsym(handle, "cudaStreamWaitEvent");
     long long startTime  = currentTime();
     syncStartTimes.insert(startTime);
@@ -95,6 +96,7 @@ cudaError_t cudaStreamWaitEvent(cudaStream_t stream, cudaEvent_t event, unsigned
     return result;
 }
 cudaError_t cudaEventRecord(cudaEvent_t event, cudaStream_t stream) {
+    printf("cudaEventRecord called\n");
     auto original_cudaEventRecord = (cudaError_t (*)(cudaEvent_t, cudaStream_t))dlsym(handle, "cudaEventRecord");
     long long startTime  = currentTime();
     syncStartTimes.insert(startTime);
