@@ -36,7 +36,7 @@ FILE *log_file;
 char path[256];
 bool allReduceHung = false;
 std::multiset<long long> syncStartTimes;
-const long long TIMEOUT = 1e11; // 10 seconds
+const long long TIMEOUT = 1e10; // 10 seconds
 
 
 long long currentTime() {
@@ -49,7 +49,9 @@ long long currentTime() {
 
 void checkForHangs() {
     while(!allReduceHung) {
-        if(currentTime() - *syncStartTimes.begin() > TIMEOUT) {
+        long long lastSyncTime = *syncStartTimes.begin();
+        long long currTime = currentTime();
+        if(lastSyncTime != 0 && currTime - lastSyncTime > TIMEOUT) {
             printf("last sync time: %lld\n", *syncStartTimes.begin());
             fflush(stdout);
             allReduceHung = true;
