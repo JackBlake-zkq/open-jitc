@@ -57,7 +57,7 @@ def master_send_failure_to_clients(skip=[]):
     print("Master sent failure to clients")
 
 def master_recv_and_forward_failures():
-    global connections, checkpointer, ddp_model, optimizer, epoch, batch_idx
+    global connections, checkpointer, model, optimizer, epoch, batch_idx
     ready, _, _ = select.select(connections, [], [], 1)
     for conn in ready:
         try:
@@ -70,7 +70,7 @@ def master_recv_and_forward_failures():
             print(f"Master received failure signal: {data}")
             master_send_failure_to_clients(skip=[conn])
             print("Checkpointing state")
-            checkpointer.checkpoint_state(ddp_model, optimizer, epoch, batch_idx)
+            checkpointer.checkpoint_state(model, optimizer, epoch, batch_idx)
             print("Killing process")
             forcibly_kill_process()
         
@@ -82,12 +82,12 @@ def send_failure_to_master():
 
 
 def recv_failure_from_master():
-    global checkpointer, ddp_model, optimizer, epoch, batch_idx, client_socket
+    global checkpointer, model, optimizer, epoch, batch_idx, client_socket
     ready, _, _ = select.select([client_socket], [], [], 1)
     if ready:
         data = ready[0].recv(1024).decode('utf-8')
         if "failed" in data:
-            checkpointer.checkpoint_state(ddp_model, optimizer, epoch, batch_idx)
+            checkpointer.checkpoint_state(model, optimizer, epoch, batch_idx)
             forcibly_kill_process()
 
 
@@ -266,7 +266,7 @@ def run(rank, size, from_checkpoint):
     if from_checkpoint:
         if rank == 0:
             checkpointer.master_consolidate_checkpoints()
-        epoch, batch_idx = checkpointer.recover_state(ddp_model, optimizer)
+        epoch, batch_idx = checkpointer.recover_state(model, optimizer)
 
     stop_event = threading.Event()
     setup_watchdog(stop_event, rank)
