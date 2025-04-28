@@ -46,7 +46,7 @@ raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
 # --- Globals for signal handling ---
 
 def handle_sigusr1(signum, frame):
-    time.sleep(5)
+    time.sleep(9999)
 
 signal.signal(signal.SIGUSR1, handle_sigusr1)
 
