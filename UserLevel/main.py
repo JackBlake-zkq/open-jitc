@@ -265,7 +265,7 @@ def run(rank, size, from_checkpoint):
     optimizer = optim.SGD(ddp_model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0001)
     criterion = nn.CrossEntropyLoss().to(device)
 
-    checkpointer = Checkpointer(raw_model, jit_checkpoint_dir, addrs)
+    checkpointer = Checkpointer(jit_checkpoint_dir, addrs, raw_model)
     if from_checkpoint:
         if rank == 0:
             checkpointer.master_consolidate_checkpoints()
