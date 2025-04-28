@@ -174,6 +174,7 @@ def recover_state():
     raw_model.load_state_dict(checkpoint['model_state'])
     optimizer.load_state_dict(checkpoint['optimizer_state'])
     os.remove(path)
+    print("Recovered state")
     return checkpoint['epoch'], checkpoint['batch_idx']
 
 # --- Training ---
