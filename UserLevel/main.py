@@ -155,24 +155,24 @@ class Checkpointer:
         
 
     def checkpoint_state(self):
-        global model, optimizer, epoch, batch_idx
+        global ddp_model, optimizer, epoch, batch_idx
         path = f"{self.cp_dir}/jit.cp"
         print(model.state_dict())
         torch.save({
-                'model_state': model.state_dict(),
+                'model_state': ddp_model.module.state_dict(),
                 'optimizer_state': optimizer.state_dict(),
                 'epoch': epoch,
                 'batch_idx': batch_idx,
         }, path)
 
     def recover_state(self):
-        global model, optimizer, epoch, batch_idx
+        global ddp_model, optimizer, epoch, batch_idx
         print("Recovering state")
         path = f"{self.cp_dir}/newest.cp"
         while not os.path.exists(path):
             time.sleep(1)
         checkpoint = torch.load(path, map_location=device)
-        model.load_state_dict(checkpoint['model_state'])
+        ddp_model.module.load_state_dict(checkpoint['model_state'])
         optimizer.load_state_dict(checkpoint['optimizer_state'])
         os.remove(path)
         return checkpoint['epoch'], checkpoint['batch_idx']
