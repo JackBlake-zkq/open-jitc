@@ -77,7 +77,7 @@ void my_init() {
     // }
 
     sprintf(path, "/tmp/app_%d.log", deviceID);
-    app_log_file.open(path);
+    app_log_file = std::ifstream(path);
     printf("Openned app log file %s\n", path);
     if (!app_log_file.is_open()) {
         std::cerr << "Error opening file" << std::endl;
