@@ -156,11 +156,13 @@ class Checkpointer:
 
     def checkpoint_state(self):
         global model, optimizer, epoch, batch_idx
+        print("got global")
         path = f"{self.cp_dir}/jit.cp"
         state_dict = {}
         for name, param in model.named_parameters():
             try:
                 state_dict[name] = param.detach().cpu()
+                print(f"Checkpointing {name}")
             except Exception as e:
                 print(f"Failed at {name}: {e}")
         torch.save({
