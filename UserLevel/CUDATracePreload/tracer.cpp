@@ -33,7 +33,7 @@
 
 void *handle;
 // FILE *log_file;
-std::ifstream app_log_file;
+std::ifstream * app_log_file;
 bool useAltCudaStream = false;
 // std::multiset<long long> syncStartTimes;
 // const long long TIMEOUT = 1e10; // 10 seconds
@@ -50,7 +50,7 @@ bool useAltCudaStream = false;
 void checkAppLog() {
     std::string line;
     while(!useAltCudaStream) {
-        std::getline(app_log_file, line);
+        std::getline(*app_log_file, line);
         if (line.find("failure") != std::string::npos) {
             useAltCudaStream = true;
             printf("Using alterantive CUDA stream for mem copies from now on\n");
@@ -78,9 +78,9 @@ void my_init() {
     // }
 
     sprintf(path, "/tmp/app_%d.log", deviceID);
-    app_log_file = std::ifstream(path);
+    app_log_file = new std::ifstream(path);
     printf("Openned app log file %s\n", path);
-    if (!app_log_file.is_open()) {
+    if (!app_log_file->is_open()) {
         std::cerr << "Error opening file" << std::endl;
         return;
     }
