@@ -19,7 +19,6 @@ import socket
 import subprocess
 import select
 import shutil
-import multiprocessing
 import sys
 
 # --- Configuration ---
@@ -221,15 +220,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
                 sys.exit(1)
 
 
-            p = multiprocessing.Process(target=loss.backward)
-            p.start()
-            p.join(args.all_reduce_timeout)
-            if p.is_alive():
-                print("All reduce timed out")
-                p.terminate()
-                p.join()
-                checkpoint_state()
-                sys.exit(1)
+            loss.backward()
 
             optimizer.step()
 
