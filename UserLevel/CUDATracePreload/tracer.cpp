@@ -32,37 +32,33 @@
 
 
 void *handle;
-FILE *log_file;
-char path[256];
-bool allReduceHung = false;
-std::multiset<long long> syncStartTimes;
-const long long TIMEOUT = 1e10; // 10 seconds
+// FILE *log_file;
+std::ifstream app_log_file;
+bool useAltCudaStream = false;
+// std::multiset<long long> syncStartTimes;
+// const long long TIMEOUT = 1e10; // 10 seconds
 
 
-long long currentTime() {
-    auto now = std::chrono::system_clock::now();
-    auto duration = now.time_since_epoch();
-    auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
-    long long nanosecond_count = nanoseconds.count();
-    return nanosecond_count;
-}
+// long long currentTime() {
+//     auto now = std::chrono::system_clock::now();
+//     auto duration = now.time_since_epoch();
+//     auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(duration);
+//     long long nanosecond_count = nanoseconds.count();
+//     return nanosecond_count;
+// }
 
 void checkForHangs() {
-    while(!allReduceHung) {
-        if(syncStartTimes.empty()) {
-            printf("syncStartTimes is empty\n");
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            continue;
+    while(!useAltCudaStream) {
+        std::string line;
+        std::getline(app_log_file, line);
+        if (line.find("failure") != std::string::npos) {
+            useAltCudaStream = true;
+            printf("Using alterantive CUDA stream for mem copies from now on\n");
+            // fprintf(log_file, "Detected hang in allReduce\n");
+            // fflush(log_file);
+            break;
         }
-        long long lastSyncTime = *syncStartTimes.begin();
-        long long currTime = currentTime();
-        printf("last sync time: %lld currentTime %lld\n", *syncStartTimes.begin(), currTime);
-        fflush(stdout);
-        if(lastSyncTime != 0 && currTime - lastSyncTime > TIMEOUT) {
-            allReduceHung = true;
-            fprintf(log_file, "Allreduce hang detected\n");
-            fflush(log_file);
-        }
+
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
@@ -72,40 +68,49 @@ __attribute__((constructor))
 void my_init() {
     handle = dlopen(LIBTORCH_CUDA_PATH, RTLD_LAZY);
     auto cudaGetDevice = (cudaError_t (*)(int*)) dlsym(handle, "cudaGetDevice");
+    char path[256];
     int deviceID;
     cudaGetDevice(&deviceID);
-    sprintf(path, "/tmp/interceptor_%d.log", deviceID);
-    log_file = fopen(path, "w");
-    if (log_file == NULL) {
-        fprintf(stderr, "Error opening log file: %s\n", path);
+    // sprintf(path, "/tmp/interceptor_%d.log", deviceID);
+    // log_file = fopen(path, "w");
+    // if (log_file == NULL) {
+    //     fprintf(stderr, "Error opening log file: %s\n", path);
+    //     return;
+    // }
+
+    sprintf(path, "/tmp/app_%d.log", deviceID);
+    app_log_file.open(path);
+    if (!app_log_file.is_open()) {
+        std::cerr << "Error opening file" << std::endl;
         return;
     }
+
     std::thread tHangChecker(checkForHangs);
     tHangChecker.detach();
 }
 
 
 
-cudaError_t cudaStreamWaitEvent(cudaStream_t stream, cudaEvent_t event, unsigned int flags) {
-    printf("cudaStreamWaitEvent called\n");
-    auto original_cudaStreamWaitEvent = (cudaError_t (*)(cudaStream_t, cudaEvent_t, unsigned int))dlsym(handle, "cudaStreamWaitEvent");
-    long long startTime  = currentTime();
-    syncStartTimes.insert(startTime);
-    cudaError_t result = original_cudaStreamWaitEvent(stream, event, flags);
-    printf("cudaStreamWaitEvent done\n");
-    syncStartTimes.erase(startTime);
-    return result;
-}
-cudaError_t cudaEventRecord(cudaEvent_t event, cudaStream_t stream) {
-    printf("cudaEventRecord called\n");
-    auto original_cudaEventRecord = (cudaError_t (*)(cudaEvent_t, cudaStream_t))dlsym(handle, "cudaEventRecord");
-    long long startTime  = currentTime();
-    syncStartTimes.insert(startTime);
-    cudaError_t result = original_cudaEventRecord(event, stream);
-    printf("cudaEventRecord done\n");
-    syncStartTimes.erase(startTime);
-    return result;
-}
+// cudaError_t cudaStreamWaitEvent(cudaStream_t stream, cudaEvent_t event, unsigned int flags) {
+//     printf("cudaStreamWaitEvent called\n");
+//     auto original_cudaStreamWaitEvent = (cudaError_t (*)(cudaStream_t, cudaEvent_t, unsigned int))dlsym(handle, "cudaStreamWaitEvent");
+//     long long startTime  = currentTime();
+//     syncStartTimes.insert(startTime);
+//     cudaError_t result = original_cudaStreamWaitEvent(stream, event, flags);
+//     printf("cudaStreamWaitEvent done\n");
+//     syncStartTimes.erase(startTime);
+//     return result;
+// }
+// cudaError_t cudaEventRecord(cudaEvent_t event, cudaStream_t stream) {
+//     printf("cudaEventRecord called\n");
+//     auto original_cudaEventRecord = (cudaError_t (*)(cudaEvent_t, cudaStream_t))dlsym(handle, "cudaEventRecord");
+//     long long startTime  = currentTime();
+//     syncStartTimes.insert(startTime);
+//     cudaError_t result = original_cudaEventRecord(event, stream);
+//     printf("cudaEventRecord done\n");
+//     syncStartTimes.erase(startTime);
+//     return result;
+// }
 
 cudaError_t cudaStreamCreate(cudaStream_t* pStream) {
     auto original_cudaStreamCreate = (cudaError_t (*)(cudaStream_t*))dlsym(handle, "cudaStreamCreate");
@@ -129,7 +134,7 @@ cudaError_t cudaStreamDestroy(cudaStream_t stream) {
 
 cudaError_t cudaMemcpy(void* dst, const void* src, size_t count, cudaMemcpyKind kind) {
     auto original_cudaMemcpy = (cudaError_t (*)(void*, const void*, size_t, cudaMemcpyKind))dlsym(handle, "cudaMemcpy");
-    if(allReduceHung) {
+    if(useAltCudaStream) {
         // change to new CUDA stream
         cudaStream_t stream;
         cudaStreamCreate(&stream);

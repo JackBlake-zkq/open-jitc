@@ -29,8 +29,12 @@ np.random.seed(seed)
 log_iter = 20
 device = torch.device("cpu")  # Will be overridden per rank
 jit_checkpoint_dir = "/tmp/jit_checkpoints"
+
 os.makedirs("output", exist_ok=True)
 os.makedirs(jit_checkpoint_dir, exist_ok=True)
+
+app_log_path = "/tmp/app_0.log"
+app_log_file = open(app_log_path, "w")
 
 stop = False
 addrs = []
@@ -51,68 +55,72 @@ raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
 def forcibly_kill_process():
     os.kill(os.getpid(), signal.SIGKILL)
 
-# def master_send_failure_to_clients(skip=[]):
-#     global connections
-#     for conn in connections:
-#         if conn in skip:
-#             continue
-#         conn.sendall("failed".encode('utf-8'))
-#     print("Master sent failure to clients")
+def master_send_failure_to_clients(skip=[]):
+    global connections
+    for conn in connections:
+        if conn in skip:
+            continue
+        conn.sendall("failed".encode('utf-8'))
+    print("Master sent failure to clients")
 
-# def master_recv_and_forward_failures():
-#     global connections, stop
-#     ready, _, _ = select.select(connections, [], [], 1)
-#     for conn in ready:
-#         try:
-#             data = conn.recv(1024).decode('utf-8')
-#         except:
-#             print("Connection closed")
-#             connections.remove(conn)
-#             continue
-#         if "failed" in data:
-#             print(f"Master received failure signal: {data}")
-#             master_send_failure_to_clients(skip=[conn])
-#             stop = True
+def master_recv_and_forward_failures():
+    global connections, stop
+    ready, _, _ = select.select(connections, [], [], 1)
+    for conn in ready:
+        try:
+            data = conn.recv(1024).decode('utf-8')
+        except:
+            print("Connection closed")
+            connections.remove(conn)
+            continue
+        if "failed" in data:
+            print(f"Master received failure signal: {data}")
+            master_send_failure_to_clients(skip=[conn])
+            app_log_file.write("failed\n")
+            app_log_file.flush()
+            stop = True
         
-# def send_failure_to_master():
-#     global client_socket
-#     if client_socket:
-#         client_socket.sendall("failed".encode('utf-8'))
-#         print("Client sent failure to master")
+def send_failure_to_master():
+    global client_socket
+    if client_socket:
+        client_socket.sendall("failed".encode('utf-8'))
+        print("Client sent failure to master")
 
 
-# def recv_failure_from_master():
-#     global client_socket, stop
-#     ready, _, _ = select.select([client_socket], [], [], 1)
-#     if ready:
-#         data = ready[0].recv(1024).decode('utf-8')
-#         if "failed" in data:
-#             stop = True
+def recv_failure_from_master():
+    global client_socket, stop
+    ready, _, _ = select.select([client_socket], [], [], 1)
+    if ready:
+        data = ready[0].recv(1024).decode('utf-8')
+        if "failed" in data:
+            app_log_file.write("failed\n")
+            app_log_file.flush()
+            stop = True
 
 
 # --- Watchdog ---
 def setup_watchdog(stop_event, rank):
     def watchdog():
-        # global client_socket, connections
-        # while True:
-        #     if stop_event.is_set():
-        #         print("Stop event set!")
-        #         if rank == 0:
-        #             master_send_failure_to_clients()
-        #             forcibly_kill_process()
-        #         else:
-        #             send_failure_to_master()
-        #             forcibly_kill_process()
-        #     if rank == 0:
-        #         master_recv_and_forward_failures()
-        #     else:
-        #         recv_failure_from_master()
-        with open(f'/tmp/interceptor_0.log', 'r') as f:
-            for line in f:
-                if "Allreduce hang detected" in line:
-                    print("Allreduce hang detected")
-                    checkpoint_state()
+        global client_socket, connections
+        while True:
+            if stop_event.is_set():
+                print("Stop event set!")
+                if rank == 0:
+                    master_send_failure_to_clients()
                     forcibly_kill_process()
+                else:
+                    send_failure_to_master()
+                    forcibly_kill_process()
+            if rank == 0:
+                master_recv_and_forward_failures()
+            else:
+                recv_failure_from_master()
+        # with open(f'/tmp/interceptor_0.log', 'r') as f:
+        #     for line in f:
+        #         if "Allreduce hang detected" in line:
+        #             print("Allreduce hang detected")
+        #             checkpoint_state()
+        #             forcibly_kill_process()
 
     watchdog_thread = threading.Thread(target=watchdog, daemon=True)
     watchdog_thread.start()
@@ -183,58 +191,58 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
     start_time = time.time()
     log_iter_start = time.time()
     global args, stop
-    # try:
-    for batch_idx, (data, target) in enumerate(train_loader):
-        if batch_idx >= stop_iter:
-            break
-        if stop:
-            checkpoint_state()
-            sys.exit(1)
+    try:
+        for batch_idx, (data, target) in enumerate(train_loader):
+            if batch_idx >= stop_iter:
+                break
+            if stop:
+                checkpoint_state()
+                sys.exit(1)
 
-        data, target = data.to(device), target.to(device)
+            data, target = data.to(device), target.to(device)
 
-        if stop:
-            checkpoint_state()
-            sys.exit(1)
+            if stop:
+                checkpoint_state()
+                sys.exit(1)
 
-        output = model(data)
+            output = model(data)
 
-        if stop:
-            checkpoint_state()
-            sys.exit(1)
-
-
-        loss = criterion(output, target)
-
-        if stop:
-            checkpoint_state()
-            sys.exit(1)
-
-        if args.error_before_opt_step and batch_idx == 20 and epoch == 0:
-            raise RuntimeError("Simulated error before all_reduce")
-
-        optimizer.zero_grad()
-
-        if stop:
-            checkpoint_state()
-            sys.exit(1)
+            if stop:
+                checkpoint_state()
+                sys.exit(1)
 
 
-        loss.backward()
+            loss = criterion(output, target)
 
-        optimizer.step()
+            if stop:
+                checkpoint_state()
+                sys.exit(1)
 
-        # Logging
-        elapsed_time = time.time() - start_time
-        start_time = time.time()
+            if args.error_before_opt_step and batch_idx == 20 and epoch == 0:
+                raise RuntimeError("Simulated error before all_reduce")
 
-        if (batch_idx + 1) % log_iter == 0 and rank == 0:
-            iter_time = time.time() - log_iter_start
-            print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
-            log_iter_start = time.time()
-    # except BaseException as e:
-    #     watchdog_stop_event.set()
-    #     print("Caught exception:", e)
+            optimizer.zero_grad()
+
+            if stop:
+                checkpoint_state()
+                sys.exit(1)
+
+
+            loss.backward()
+
+            optimizer.step()
+
+            # Logging
+            elapsed_time = time.time() - start_time
+            start_time = time.time()
+
+            if (batch_idx + 1) % log_iter == 0 and rank == 0:
+                iter_time = time.time() - log_iter_start
+                print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
+                log_iter_start = time.time()
+    except BaseException as e:
+        watchdog_stop_event.set()
+        print("Caught exception:", e)
 
 
 # --- Testing ---
@@ -312,26 +320,26 @@ if __name__ == "__main__":
     parser.add_argument('--from_checkpoint', action='store_true', default=False, help='Load from checkpoint')
     args = parser.parse_args()
 
-    # client_socket = None
-    # addrs = []
-    # if args.rank == 0:
-    #     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #     server_socket.bind((args.master_ip, 18080))
-    #     server_socket.listen(args.num_nodes - 1)
-    #     connections = []
-    #     for i in range(1, args.num_nodes):
-    #         print(f"Waiting for connection from node {i}...")   
-    #         client_socket, addr = server_socket.accept()
-    #         print(f"Connected to node {i} at {addr}")
-    #         addrs.append(addr)
-    #         connections.append(client_socket)
-    #         # client_socket.setblocking(False)
-    # else:
-    #     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #     print(f"Connecting to master at {args.master_ip}...")
-    #     client_socket.connect((args.master_ip, 18080))
-    #     print(f"Connected to master at {args.master_ip}")
-    #     client_socket.setblocking(False)
+    client_socket = None
+    addrs = []
+    if args.rank == 0:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind((args.master_ip, 18080))
+        server_socket.listen(args.num_nodes - 1)
+        connections = []
+        for i in range(1, args.num_nodes):
+            print(f"Waiting for connection from node {i}...")   
+            client_socket, addr = server_socket.accept()
+            print(f"Connected to node {i} at {addr}")
+            addrs.append(addr)
+            connections.append(client_socket)
+            # client_socket.setblocking(False)
+    else:
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(f"Connecting to master at {args.master_ip}...")
+        client_socket.connect((args.master_ip, 18080))
+        print(f"Connected to master at {args.master_ip}")
+        client_socket.setblocking(False)
 
 
     global batch_size, num_epochs, stop_iter, log_file_name
