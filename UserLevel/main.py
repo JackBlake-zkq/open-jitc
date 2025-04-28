@@ -34,7 +34,7 @@ os.makedirs(jit_checkpoint_dir, exist_ok=True)
 stop = False
 addrs = []
 connections = []
-checkpointer, raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, None, 0, 0, None
+raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
 
 # --- Globals for signal handling ---
 # interrupted_by_sigusr1 = False
@@ -59,7 +59,7 @@ def master_send_failure_to_clients(skip=[]):
     print("Master sent failure to clients")
 
 def master_recv_and_forward_failures():
-    global connections, checkpointer, stop
+    global connections, stop
     ready, _, _ = select.select(connections, [], [], 1)
     for conn in ready:
         try:
@@ -81,12 +81,11 @@ def send_failure_to_master():
 
 
 def recv_failure_from_master():
-    global checkpointer, client_socket, stop
+    global client_socket, stop
     ready, _, _ = select.select([client_socket], [], [], 1)
     if ready:
         data = ready[0].recv(1024).decode('utf-8')
         if "failed" in data:
-            checkpointer.checkpoint_state()
             stop = True
 
 
@@ -253,7 +252,7 @@ def init_process(master_ip, rank, size, backend='nccl'):
 
 def run(rank, size, from_checkpoint):
     print("Using Checkpoint" if from_checkpoint else "Not using Checkpoint")
-    global device, addrs, checkpointer, raw_model, ddp_model, optimizer, epoch, batch_idx
+    global device, addrs, raw_model, ddp_model, optimizer, epoch, batch_idx
     device = torch.device(f"cuda:0" if torch.cuda.is_available() else "cpu")
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -279,11 +278,10 @@ def run(rank, size, from_checkpoint):
     optimizer = optim.SGD(ddp_model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0001)
     criterion = nn.CrossEntropyLoss().to(device)
 
-    checkpointer = Checkpointer(jit_checkpoint_dir, addrs, raw_model)
     if from_checkpoint:
         if rank == 0:
-            checkpointer.master_consolidate_checkpoints()
-        epoch, batch_idx = checkpointer.recover_state()
+            master_consolidate_checkpoints()
+        epoch, batch_idx = recover_state()
 
     watchdog_stop_event = threading.Event()
     setup_watchdog(watchdog_stop_event, rank)
