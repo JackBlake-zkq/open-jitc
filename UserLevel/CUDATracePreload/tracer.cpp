@@ -65,7 +65,7 @@ void checkAppLog() {
         std::getline(*app_log_file, line);
         printf("%s", line.c_str());
         fflush(stdout);
-        if (line.find("failure") != std::string::npos) {
+        if (line.find("failed") != std::string::npos) {
             useAltCudaStream = true;
             printf("Using alterantive CUDA stream for mem copies from now on\n");
             // fprintf(log_file, "Detected hang in allReduce\n");
