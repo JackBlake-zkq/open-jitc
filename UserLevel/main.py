@@ -32,7 +32,7 @@ os.makedirs("output", exist_ok=True)
 os.makedirs(jit_checkpoint_dir, exist_ok=True)
 
 in_opt_step = False
-checkpointer, model, optimizer, epoch, batch_idx = None, None, None, 0, 0
+checkpointer, model, optimizer, epoch, batch_idx, ddp_model = None, None, None, 0, 0, None
 
 # --- Globals for signal handling ---
 # interrupted_by_sigusr1 = False
@@ -54,7 +54,7 @@ def master_send_failure_to_clients(skip=[]):
     print("Master sent failure to clients")
 
 def master_recv_and_forward_failures():
-    global connections, checkpointer, model, optimizer, epoch, batch_idx
+    global connections, checkpointer, ddp_model, optimizer, epoch, batch_idx
     ready, _, _ = select.select(connections, [], [], 1)
     for conn in ready:
         try:
@@ -67,7 +67,7 @@ def master_recv_and_forward_failures():
             print(f"Master received failure signal: {data}")
             master_send_failure_to_clients(skip=[conn])
             print("Checkpointing state")
-            checkpointer.checkpoint_state(model, optimizer, epoch, batch_idx)
+            checkpointer.checkpoint_state(ddp_model, optimizer, epoch, batch_idx)
             print("Killing process")
             os.kill(os.getpid(), signal.SIGKILL)
         
@@ -78,12 +78,12 @@ def send_failure_to_master():
         print("Client sent failure to master")
 
 def recv_failure_from_master():
-    global checkpointer, model, optimizer, epoch, batch_idx, client_socket
+    global checkpointer, ddp_model, optimizer, epoch, batch_idx, client_socket
     ready, _, _ = select.select([client_socket], [], [], 1)
     if ready:
         data = ready[0].recv(1024).decode('utf-8')
         if "failed" in data:
-            checkpointer.checkpoint_state(model, optimizer, epoch, batch_idx)
+            checkpointer.checkpoint_state(ddp_model, optimizer, epoch, batch_idx)
             os.kill(os.getpid(), signal.SIGKILL)
 
 
@@ -229,7 +229,7 @@ def init_process(master_ip, rank, size, backend='nccl'):
 
 def run(rank, size, from_checkpoint):
     print("Using Checkpoint" if from_checkpoint else "Not using Checkpoint")
-    global device, addrs, checkpointer, model, optimizer, epoch, batch_idx
+    global device, addrs, checkpointer, model, ddp_model, optimizer, epoch, batch_idx
     device = torch.device(f"cuda:0" if torch.cuda.is_available() else "cpu")
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
