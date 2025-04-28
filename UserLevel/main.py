@@ -37,6 +37,8 @@ app_log_path = "/tmp/app_0.log"
 app_log_file = open(app_log_path, "w")
 
 stop = False
+in_opt_step = False
+watchdog_thread = None
 addrs = []
 connections = []
 raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
@@ -54,6 +56,15 @@ raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
 
 def forcibly_kill_process():
     os.kill(os.getpid(), signal.SIGKILL)
+
+def handle_failure():
+    global stop, app_log_file
+    app_log_file.write("failed\n")
+    app_log_file.flush()
+    stop = True
+    if not in_opt_step:
+        checkpoint_state()
+
 
 def master_send_failure_to_clients(skip=[]):
     global connections
@@ -76,9 +87,7 @@ def master_recv_and_forward_failures():
         if "failed" in data:
             print(f"Master received failure signal: {data}")
             master_send_failure_to_clients(skip=[conn])
-            app_log_file.write("failed\n")
-            app_log_file.flush()
-            stop = True
+            handle_failure()
         
 def send_failure_to_master():
     global client_socket
@@ -93,9 +102,7 @@ def recv_failure_from_master():
     if ready:
         data = ready[0].recv(1024).decode('utf-8')
         if "failed" in data:
-            app_log_file.write("failed\n")
-            app_log_file.flush()
-            stop = True
+            handle_failure()
 
 
 # --- Watchdog ---
@@ -190,7 +197,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
     model.train()
     start_time = time.time()
     log_iter_start = time.time()
-    global args, stop
+    global args, stop, in_opt_step, watchdog_thread
     try:
         for batch_idx, (data, target) in enumerate(train_loader):
             if batch_idx >= stop_iter:
@@ -199,36 +206,26 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
                 checkpoint_state()
                 sys.exit(1)
 
-            data, target = data.to(device), target.to(device)
+            in_opt_step = False
 
-            if stop:
-                checkpoint_state()
-                sys.exit(1)
+            data, target = data.to(device), target.to(device)
 
             output = model(data)
 
-            if stop:
-                checkpoint_state()
-                sys.exit(1)
-
-
             loss = criterion(output, target)
-
-            if stop:
-                checkpoint_state()
-                sys.exit(1)
-
+            
             if args.error_before_opt_step and batch_idx == 20 and epoch == 0:
                 raise RuntimeError("Simulated error before all_reduce")
 
             optimizer.zero_grad()
 
-            if stop:
-                checkpoint_state()
-                sys.exit(1)
-
-
             loss.backward()
+
+            in_opt_step = True
+
+            if stop:
+                watchdog_thread.join()
+                sys.exit(1)
 
             optimizer.step()
 
@@ -265,7 +262,7 @@ def init_process(master_ip, rank, size, backend='nccl'):
 
 def run(rank, size, from_checkpoint):
     print("Using Checkpoint" if from_checkpoint else "Not using Checkpoint")
-    global device, addrs, checkpointer, raw_model, ddp_model, optimizer, epoch, batch_idx
+    global device, addrs, checkpointer, raw_model, ddp_model, optimizer, epoch, batch_idx, watchdog_thread
     device = torch.device(f"cuda:0" if torch.cuda.is_available() else "cpu")
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -297,7 +294,7 @@ def run(rank, size, from_checkpoint):
         epoch, batch_idx = recover_state()
 
     watchdog_stop_event = threading.Event()
-    setup_watchdog(watchdog_stop_event, rank)
+    watchdog_thread = setup_watchdog(watchdog_stop_event, rank)
     sampler.set_epoch(epoch)
 
     for epoch in range(num_epochs):
