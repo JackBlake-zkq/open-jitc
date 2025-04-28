@@ -64,6 +64,7 @@ void checkAppLog() {
 
 __attribute__((constructor))
 void my_init() {
+    printf("Tracer initialized\n");
     handle = dlopen(LIBTORCH_CUDA_PATH, RTLD_LAZY);
     auto cudaGetDevice = (cudaError_t (*)(int*)) dlsym(handle, "cudaGetDevice");
     char path[256];
