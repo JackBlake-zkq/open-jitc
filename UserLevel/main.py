@@ -157,7 +157,7 @@ class Checkpointer:
     def checkpoint_state(self):
         global model, optimizer, epoch, batch_idx
         path = f"{self.cp_dir}/jit.cp"
-        print(model)
+        print(model.state_dict())
         torch.save({
                 'model_state': model.state_dict(),
                 'optimizer_state': optimizer.state_dict(),
