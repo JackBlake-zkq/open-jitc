@@ -113,13 +113,13 @@ def setup_watchdog(stop_event, rank):
     watchdog_thread.start()
     return watchdog_thread
 
-def master_consolidate_checkpoints(self):
+def master_consolidate_checkpoints():
     global jit_checkpoint_dir, addrs
     print("Consolidating checkpoints")
     newest_path = f"{jit_checkpoint_dir}/newest.cp"
     if(os.path.exists(newest_path)):
         os.remove(newest_path)
-    for i,addr in enumerate(self.addrs):
+    for i,addr in enumerate(addrs):
         try:
             subprocess.run(['scp', f'{addr[0]}:{jit_checkpoint_dir}/jit.cp', f'{jit_checkpoint_dir}/jit_{i}.cp'], check=True)
         except subprocess.CalledProcessError as e:
