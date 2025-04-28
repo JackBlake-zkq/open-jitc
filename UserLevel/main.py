@@ -45,10 +45,10 @@ raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
 
 # --- Globals for signal handling ---
 
-def handle_sigusr1(signum, frame):
-    time.sleep(9999)
+# def handle_sigusr1(signum, frame):
+#     time.sleep(9999)
 
-signal.signal(signal.SIGUSR1, handle_sigusr1)
+# signal.signal(signal.SIGUSR1, handle_sigusr1)
 
 def forcibly_kill_process():
     os.kill(os.getpid(), signal.SIGKILL)
@@ -59,7 +59,7 @@ def handle_failure():
     app_log_file.flush()
     stop = True
     if not in_opt_step:
-        os.kill(os.getpid(), signal.SIGUSR1)
+        # os.kill(os.getpid(), signal.SIGUSR1)
         time.sleep(5)
         checkpoint_state()
 
