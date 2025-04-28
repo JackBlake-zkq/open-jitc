@@ -15,7 +15,6 @@
 #include <queue>
 #include <set>
 #include <thread>
-#include <filesystem>
 
 #if TRACK_CUDA
 #include <cuda_runtime.h>
@@ -51,10 +50,11 @@ int deviceID;
 // }
 
 void checkAppLog() {
-    while(!std::filesystem::exists(path)) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
     app_log_file = new std::ifstream(path);
+    while(!app_log_file->is_open()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        app_log_file->open(path);
+    }
     printf("Openned app log file %s\n", path);
     if (!app_log_file->is_open()) {
         std::cerr << "Error opening file" << std::endl;
