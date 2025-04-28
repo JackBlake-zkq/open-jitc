@@ -184,7 +184,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, stop_eve
 
             loss = criterion(output, target)
 
-            if args.error_before_all_reduce and batch_idx == 20 and epoch == 0:
+            if args.error_before_opt_step and batch_idx == 20 and epoch == 0:
                 raise RuntimeError("Simulated error before all_reduce")
 
             optimizer.zero_grad()
