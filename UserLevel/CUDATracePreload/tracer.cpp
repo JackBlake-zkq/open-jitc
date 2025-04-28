@@ -63,6 +63,8 @@ void checkAppLog() {
     std::string line;
     while(!useAltCudaStream) {
         std::getline(*app_log_file, line);
+        printf("%s", line.c_str());
+        fflush(stdout);
         if (line.find("failure") != std::string::npos) {
             useAltCudaStream = true;
             printf("Using alterantive CUDA stream for mem copies from now on\n");
@@ -138,6 +140,7 @@ cudaError_t cudaStreamDestroy(cudaStream_t stream) {
 cudaError_t cudaMemcpy(void* dst, const void* src, size_t count, cudaMemcpyKind kind) {
     auto original_cudaMemcpy = (cudaError_t (*)(void*, const void*, size_t, cudaMemcpyKind))dlsym(handle, "cudaMemcpy");
     if(useAltCudaStream) {
+        printf("Using alternative CUDA stream for memcpy\n");
         // change to new CUDA stream
         cudaStream_t stream;
         cudaStreamCreate(&stream);
