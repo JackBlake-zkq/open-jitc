@@ -319,26 +319,26 @@ if __name__ == "__main__":
     parser.add_argument('--from_checkpoint', action='store_true', default=False, help='Load from checkpoint')
     args = parser.parse_args()
 
-    client_socket = None
-    addrs = []
-    if args.rank == 0:
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind((args.master_ip, 18080))
-        server_socket.listen(args.num_nodes - 1)
-        connections = []
-        for i in range(1, args.num_nodes):
-            print(f"Waiting for connection from node {i}...")   
-            client_socket, addr = server_socket.accept()
-            print(f"Connected to node {i} at {addr}")
-            addrs.append(addr)
-            connections.append(client_socket)
-            # client_socket.setblocking(False)
-    else:
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print(f"Connecting to master at {args.master_ip}...")
-        client_socket.connect((args.master_ip, 18080))
-        print(f"Connected to master at {args.master_ip}")
-        client_socket.setblocking(False)
+    # client_socket = None
+    # addrs = []
+    # if args.rank == 0:
+    #     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #     server_socket.bind((args.master_ip, 18080))
+    #     server_socket.listen(args.num_nodes - 1)
+    #     connections = []
+    #     for i in range(1, args.num_nodes):
+    #         print(f"Waiting for connection from node {i}...")   
+    #         client_socket, addr = server_socket.accept()
+    #         print(f"Connected to node {i} at {addr}")
+    #         addrs.append(addr)
+    #         connections.append(client_socket)
+    #         # client_socket.setblocking(False)
+    # else:
+    #     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #     print(f"Connecting to master at {args.master_ip}...")
+    #     client_socket.connect((args.master_ip, 18080))
+    #     print(f"Connected to master at {args.master_ip}")
+    #     client_socket.setblocking(False)
 
 
     global batch_size, num_epochs, stop_iter, log_file_name
