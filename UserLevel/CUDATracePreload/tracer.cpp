@@ -47,9 +47,9 @@ bool useAltCudaStream = false;
 //     return nanosecond_count;
 // }
 
-void checkForHangs() {
+void checkAppLog() {
+    std::string line;
     while(!useAltCudaStream) {
-        std::string line;
         std::getline(app_log_file, line);
         if (line.find("failure") != std::string::npos) {
             useAltCudaStream = true;
@@ -58,8 +58,6 @@ void checkForHangs() {
             // fflush(log_file);
             break;
         }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
 }
@@ -80,12 +78,13 @@ void my_init() {
 
     sprintf(path, "/tmp/app_%d.log", deviceID);
     app_log_file.open(path);
+    printf("Openned app log file %s\n", path);
     if (!app_log_file.is_open()) {
         std::cerr << "Error opening file" << std::endl;
         return;
     }
 
-    std::thread tHangChecker(checkForHangs);
+    std::thread tHangChecker(checkAppLog);
     tHangChecker.detach();
 }
 
