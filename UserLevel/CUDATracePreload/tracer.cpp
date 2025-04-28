@@ -92,6 +92,7 @@ cudaError_t cudaStreamWaitEvent(cudaStream_t stream, cudaEvent_t event, unsigned
     long long startTime  = currentTime();
     syncStartTimes.insert(startTime);
     cudaError_t result = original_cudaStreamWaitEvent(stream, event, flags);
+    printf("cudaStreamWaitEvent done\n");
     syncStartTimes.erase(startTime);
     return result;
 }
@@ -101,6 +102,7 @@ cudaError_t cudaEventRecord(cudaEvent_t event, cudaStream_t stream) {
     long long startTime  = currentTime();
     syncStartTimes.insert(startTime);
     cudaError_t result = original_cudaEventRecord(event, stream);
+    printf("cudaEventRecord done\n");
     syncStartTimes.erase(startTime);
     return result;
 }
