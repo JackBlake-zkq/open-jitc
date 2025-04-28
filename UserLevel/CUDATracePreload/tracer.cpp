@@ -63,7 +63,7 @@ void checkAppLog() {
     std::string line;
     while(!useAltCudaStream) {
         std::getline(*app_log_file, line);
-        printf("%s", line.c_str());
+        printf("Interceptor read line from app log: %s\n", line.c_str());
         fflush(stdout);
         if (line.find("failed") != std::string::npos) {
             useAltCudaStream = true;
@@ -158,4 +158,18 @@ cudaError_t cudaMemcpy(void* dst, const void* src, size_t count, cudaMemcpyKind 
         cudaStreamDestroy(stream);
     }
     return original_cudaMemcpy(dst, src, count, kind);
+}
+
+cudaError_t cudaMemcpyAsync(void* dst, const void* src, size_t count, cudaMemcpyKind kind) {
+    auto original_cudaMemcpyAsync = (cudaError_t (*)(void*, const void*, size_t, cudaMemcpyKind))dlsym(handle, "cudaMemcpyAsync");
+    if(useAltCudaStream) {
+        printf("Using alternative CUDA stream for memcpy async\n");
+        // change to new CUDA stream
+        cudaStream_t stream;
+        cudaStreamCreate(&stream);
+        cudaMemcpyAsync(dst, src, count, kind, stream);
+        cudaStreamSynchronize(stream);
+        cudaStreamDestroy(stream);
+    }
+    return original_cudaMemcpyAsync(dst, src, count, kind);
 }
