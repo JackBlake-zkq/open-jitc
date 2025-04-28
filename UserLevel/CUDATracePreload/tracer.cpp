@@ -15,6 +15,7 @@
 #include <queue>
 #include <set>
 #include <thread>
+#include <filesystem>
 
 #if TRACK_CUDA
 #include <cuda_runtime.h>
@@ -35,6 +36,8 @@ void *handle;
 // FILE *log_file;
 std::ifstream * app_log_file;
 bool useAltCudaStream = false;
+char path[256];
+int deviceID;
 // std::multiset<long long> syncStartTimes;
 // const long long TIMEOUT = 1e10; // 10 seconds
 
@@ -48,6 +51,15 @@ bool useAltCudaStream = false;
 // }
 
 void checkAppLog() {
+    while(!std::filesystem::exists(path)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    app_log_file = new std::ifstream(path);
+    printf("Openned app log file %s\n", path);
+    if (!app_log_file->is_open()) {
+        std::cerr << "Error opening file" << std::endl;
+        return;
+    }
     std::string line;
     while(!useAltCudaStream) {
         std::getline(*app_log_file, line);
@@ -67,23 +79,14 @@ void my_init() {
     printf("Tracer initialized\n");
     handle = dlopen(LIBTORCH_CUDA_PATH, RTLD_LAZY);
     auto cudaGetDevice = (cudaError_t (*)(int*)) dlsym(handle, "cudaGetDevice");
-    char path[256];
-    int deviceID;
     cudaGetDevice(&deviceID);
+    sprintf(path, "/tmp/app_%d.log", deviceID);
     // sprintf(path, "/tmp/interceptor_%d.log", deviceID);
     // log_file = fopen(path, "w");
     // if (log_file == NULL) {
     //     fprintf(stderr, "Error opening log file: %s\n", path);
     //     return;
     // }
-
-    sprintf(path, "/tmp/app_%d.log", deviceID);
-    app_log_file = new std::ifstream(path);
-    printf("Openned app log file %s\n", path);
-    if (!app_log_file->is_open()) {
-        std::cerr << "Error opening file" << std::endl;
-        return;
-    }
 
     std::thread tHangChecker(checkAppLog);
     tHangChecker.detach();
