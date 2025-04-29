@@ -25,7 +25,7 @@ from copy import deepcopy
 # print("GIL Enabled:", sys._is_gil_enabled())
 
 # --- Configuration ---
-torch.set_num_threads(4)
+# torch.set_num_threads(4)
 seed = 2021
 torch.manual_seed(seed)
 np.random.seed(seed)
@@ -63,7 +63,6 @@ def handle_failure():
     stop = True
     if not in_opt_step:
         # os.kill(os.getpid(), signal.SIGUSR1)
-        dist.destroy_process_group()
         time.sleep(1)
         checkpoint_state()
 
