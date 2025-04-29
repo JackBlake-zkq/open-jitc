@@ -162,7 +162,7 @@ cudaError_t cudaMemcpy(void* dst, const void* src, size_t count, cudaMemcpyKind 
     return original_cudaMemcpy(dst, src, count, kind);
 }
 
-cudaError_t cudaMemcpyAsync(void* dst, const void* src, size_t count, cudaMemcpyKind kind) {
+cudaError_t cudaMemcpyAsync(void* dst, const void* src, size_t count, cudaMemcpyKind kind, cudaStream_t stream) {
     printf("cudaMemcpyAsync called\n");
     auto original_cudaMemcpyAsync = (cudaError_t (*)(void*, const void*, size_t, cudaMemcpyKind, cudaStream_t))dlsym(handle, "cudaMemcpyAsync");
     if(useAltCudaStream) {
@@ -174,5 +174,5 @@ cudaError_t cudaMemcpyAsync(void* dst, const void* src, size_t count, cudaMemcpy
         cudaStreamSynchronize(stream);
         cudaStreamDestroy(stream);
     }
-    return original_cudaMemcpyAsync(dst, src, count, kind);
+    return original_cudaMemcpyAsync(dst, src, count, kind, stream);
 }
