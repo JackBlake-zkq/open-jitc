@@ -63,7 +63,7 @@ def handle_failure():
     stop = True
     if not in_opt_step:
         # os.kill(os.getpid(), signal.SIGUSR1)
-        time.sleep(5)
+        time.sleep(1)
         checkpoint_state()
 
 
