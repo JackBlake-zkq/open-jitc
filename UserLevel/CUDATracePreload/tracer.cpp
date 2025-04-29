@@ -102,7 +102,7 @@ cudaStream_t newStream;
 
 
 void checkAppLog() {
-    auto original_cudaStreamCreate = (cudaError_t (*)(cudaStream_t*))dlsym(handle, "cudaStreamCreate");
+    auto origninal_cudaStreamCreateWithPriority = (cudaError_t (*) (cudaStream_t*, unsigned int, int))dlsym(handle, "cudaStreamCreateWithPriority");
     app_log_file = new std::ifstream(path);
     while(!app_log_file->is_open()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -122,7 +122,7 @@ void checkAppLog() {
         }
         if (line.find("failed") != std::string::npos) {
             useAltCudaStream = true;
-            original_cudaStreamCreate(&newStream);
+            origninal_cudaStreamCreateWithPriority(&newStream, cudaStreamNonBlocking, 999);
             printf("Using alterantive CUDA stream for mem copies from now on\n");
             // fprintf(log_file, "Detected hang in allReduce\n");
             // fflush(log_file);
