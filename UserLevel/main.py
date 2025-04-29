@@ -20,6 +20,7 @@ import subprocess
 import select
 import shutil
 import sys
+from copy import deepcopy
 
 # print("GIL Enabled:", sys._is_gil_enabled())
 
@@ -173,9 +174,10 @@ def checkpoint_state():
     global optimizer, epoch, batch_idx, raw_model, ddp_model
     print("Checkpointing state")
     path = f"{jit_checkpoint_dir}/jit.cp"
-    print(raw_model.state_dict())
+    cp = deepcopy(raw_model).cpu()
+    print(cp.state_dict())
     torch.save({
-            'model_state': raw_model.state_dict(),
+            'model_state': cp.state_dict(),
             'optimizer_state': optimizer.state_dict(),
             'epoch': epoch,
             'batch_idx': batch_idx,
