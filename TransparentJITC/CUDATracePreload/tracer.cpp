@@ -59,8 +59,7 @@
         checkAppLog(); \
 	cudaError_t result = original_##func_name arg_names; \
         if(isPreOptStepTrainsientError(result)) { \
-            handlePreOptStepTransientError(); \
-            return cudaSuccess; \
+            return handlePreOptStepTransientError(); \
         } \
         PRE_RETURN_HOOK \
         return result; \
@@ -79,6 +78,51 @@
 
 #endif
 
+#define PARSE_void_ptr(name) \
+    uintptr_t name##_val; iss >> std::hex >> name##_val; void* name = reinterpret_cast<void*>(name##_val);
+
+#define PARSE_const_void_ptr(name) \
+    uintptr_t name##_val; iss >> std::hex >> name##_val; const void* name = reinterpret_cast<const void*>(name##_val);
+
+#define PARSE_size_t(name) \
+    size_t name; iss >> name;
+
+#define PARSE_int(name) \
+    int name; iss >> name;
+
+#define PARSE_cudaMemcpyKind(name) \
+    int name##_val; iss >> name##_val; cudaMemcpyKind name = static_cast<cudaMemcpyKind>(name##_val);
+
+#define PARSE_ONE_ARG(type, name) PARSE_##type(name)
+
+#define EXPAND_PARSE_ARGS_1(a) PARSE_ONE_ARG a
+#define EXPAND_PARSE_ARGS_2(a, ...) PARSE_ONE_ARG a EXPAND_PARSE_ARGS_1(__VA_ARGS__)
+#define EXPAND_PARSE_ARGS_3(a, ...) PARSE_ONE_ARG a EXPAND_PARSE_ARGS_2(__VA_ARGS__)
+#define EXPAND_PARSE_ARGS_4(a, ...) PARSE_ONE_ARG a EXPAND_PARSE_ARGS_3(__VA_ARGS__)
+#define EXPAND_PARSE_ARGS_5(a, ...) PARSE_ONE_ARG a EXPAND_PARSE_ARGS_4(__VA_ARGS__)
+// add more if needed
+
+#define GET_ARG_COUNT(_1,_2,_3,_4,_5,N,...) N
+#define EXPAND_PARSE_ARGS(...) GET_ARG_COUNT(__VA_ARGS__, EXPAND_PARSE_ARGS_5, EXPAND_PARSE_ARGS_4, EXPAND_PARSE_ARGS_3, EXPAND_PARSE_ARGS_2, EXPAND_PARSE_ARGS_1)(__VA_ARGS__)
+
+#define EXTRACT_NAME(type, name) name
+
+#define EXPAND_ARG_NAMES_1(a) EXTRACT_NAME a
+#define EXPAND_ARG_NAMES_2(a, ...) EXTRACT_NAME a, EXPAND_ARG_NAMES_1(__VA_ARGS__)
+#define EXPAND_ARG_NAMES_3(a, ...) EXTRACT_NAME a, EXPAND_ARG_NAMES_2(__VA_ARGS__)
+#define EXPAND_ARG_NAMES_4(a, ...) EXTRACT_NAME a, EXPAND_ARG_NAMES_3(__VA_ARGS__)
+#define EXPAND_ARG_NAMES_5(a, ...) EXTRACT_NAME a, EXTRACT_NAME a, EXPAND_ARG_NAMES_4(__VA_ARGS__)
+
+#define EXPAND_ARG_NAMES(...) GET_ARG_COUNT(__VA_ARGS__, EXPAND_ARG_NAMES_5, EXPAND_ARG_NAMES_4, EXPAND_ARG_NAMES_3, EXPAND_ARG_NAMES_2, EXPAND_ARG_NAMES_1)(__VA_ARGS__)
+
+#define REPLAY_DISPATCH(return_type, func_name, full_args, arg_types, arg_names) \
+    if (funcName == #func_name) { \
+        std::istringstream iss(args); \
+        EXPAND_PARSE_ARGS full_args \
+        auto realFunc = (return_type (*) arg_types) dlsym(RTLD_NEXT, #func_name); \
+        result = realFunc arg_names; \
+        continue; \
+    }
 
 void *handle;
 FILE *log_file;
@@ -163,18 +207,650 @@ bool isPreOptStepTrainsientError(cudaError_t result) {
     return rand() < 0.001;
 }
 
-void replayLog() {
-    // std::ifstream slog_file(path);
-    // std::string line;
-    // while (std::getline(slog_file, line)) {
-    //     std::string funcName = line.substr(0,line.find_first_of(":"));
-    //     std::string args = line.substr(line.find_first_of(":")+1);
-    //     // func = dlsym(RTLD_NEXT, funcName);
+cudaError_t replayLog() {
+    std::ifstream slog_file(path);
+    std::string line;
+    cudaError_t result;
+    while (std::getline(slog_file, line)) {
+        std::string funcName = line.substr(0,line.find_first_of(":"));
+        std::string args = line.substr(line.find_first_of(":")+1);
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaLaunchKernel,
+            (const void* func, dim3 gridDim, dim3 blockDim, void** args, size_t sharedMem, cudaStream_t stream),
+            (const void*, dim3, dim3, void**, size_t, cudaStream_t),
+            (func, gridDim, blockDim, args, sharedMem, stream),
+        )
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaMemcpy,
+                (void* dst, const void* src, size_t count, cudaMemcpyKind kind),
+                (void *, const void*, size_t, cudaMemcpyKind),
+                (dst, src, count, kind),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t,
+                cudaMemcpyAsync,
+                (void* dst, const void* src, size_t count, cudaMemcpyKind kind, cudaStream_t str),
+                (void *, const void *, size_t, cudaMemcpyKind, cudaStream_t),
+                (dst, src, count, kind, str),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t,
+                cudaArrayGetInfo,
+                (cudaChannelFormatDesc* desc, cudaExtent* extent, unsigned int* flags, cudaArray_t array),
+                (cudaChannelFormatDesc*, cudaExtent*, unsigned int*, cudaArray_t),
+                (desc, extent, flags, array),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaArrayGetPlane, 
+                (cudaArray_t* pPlaneArray, cudaArray_t hArray, unsigned int planeIdx), 
+                (cudaArray_t*, cudaArray_t, unsigned int), 
+                (pPlaneArray, hArray, planeIdx),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaArrayGetSparseProperties, 
+                (cudaArraySparseProperties* sparseProperties, cudaArray_t array), 
+                (cudaArraySparseProperties*, cudaArray_t), 
+                (sparseProperties, array),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t,
+                cudaFree,
+                (void* devPtr), 
+                (void*), 
+                (devPtr),
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaFreeArray, 
+                (cudaArray_t array), 
+                (cudaArray_t), 
+                (array),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaFreeHost, 
+                (void* ptr), 
+                (void*), 
+                (ptr),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaFreeMipmappedArray, 
+                (cudaMipmappedArray_t mipmappedArray), 
+                (cudaMipmappedArray_t), 
+                (mipmappedArray),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaGetMipmappedArrayLevel, 
+                (cudaArray_t* levelArray, cudaMipmappedArray_const_t mipmappedArray, unsigned int level), 
+                (cudaArray_t*, cudaMipmappedArray_const_t, unsigned int), 
+                (levelArray, mipmappedArray, level),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaGetSymbolAddress, 
+                (void** devPtr, const void* symbol), 
+                (void**, const void*), 
+                (devPtr, symbol),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaGetSymbolSize, 
+                (size_t* size, const void* symbol), 
+                (size_t*, const void*), 
+                (size, symbol),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaHostAlloc, 
+                (void** pHost, size_t size, unsigned int flags), 
+                (void**, size_t, unsigned int), 
+                (pHost, size, flags),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t,
+                cudaHostGetDevicePointer,
+                (void** pDevice, void* pHost, unsigned int flags),
+                (void**, void*, unsigned int),
+                (pDevice, pHost, flags),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaHostGetFlags, 
+                (unsigned int* pFlags, void* pHost), 
+                (unsigned int*, void*), 
+                (pFlags, pHost),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaHostRegister, 
+                (void* ptr, size_t size, unsigned int flags), 
+                (void*, size_t, unsigned int), 
+                (ptr, size, flags),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaHostUnregister, 
+                (void* ptr), 
+                (void*), 
+                (ptr),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaMalloc,
+                (void** devPtr, size_t size), 
+                (void**, size_t), 
+                (devPtr, size),
+                )
+        
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaMalloc3D, 
+                (cudaPitchedPtr* pitchedDevPtr, cudaExtent extent), 
+                (cudaPitchedPtr*, cudaExtent), 
+                (pitchedDevPtr, extent),
+        
+                )
+        
+        REPLAY_DISPATCH(
+                cudaError_t, 
+                cudaMalloc3DArray, 
+                (cudaArray_t* array, const cudaChannelFormatDesc* desc, cudaExtent extent, unsigned int flags), 
+                (cudaArray_t*, const cudaChannelFormatDesc*, cudaExtent, unsigned int), 
+                (array, desc, extent, flags),
+        
+                )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMallocArray, 
+            (cudaArray_t* array, const cudaChannelFormatDesc* desc, size_t width, size_t height, unsigned int flags), 
+            (cudaArray_t*, const cudaChannelFormatDesc*, size_t, size_t, unsigned int), 
+            (array, desc, width, height, flags),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMallocHost, 
+            (void** ptr, size_t size), 
+            (void**, size_t), 
+            (ptr, size),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMallocManaged, 
+            (void** devPtr, size_t size, unsigned int flags), 
+            (void**, size_t, unsigned int), 
+            (devPtr, size, flags),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMallocMipmappedArray, 
+            (cudaMipmappedArray_t* mipmappedArray, const cudaChannelFormatDesc* desc, cudaExtent extent, unsigned int numLevels, unsigned int flags), 
+            (cudaMipmappedArray_t*, const cudaChannelFormatDesc*, cudaExtent, unsigned int, unsigned int), 
+            (mipmappedArray, desc, extent, numLevels, flags),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMallocPitch, 
+            (void** devPtr, size_t* pitch, size_t width, size_t height), 
+            (void**, size_t*, size_t, size_t), 
+            (devPtr, pitch, width, height),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemAdvise, 
+            (const void* devPtr, size_t count, cudaMemoryAdvise advice, int device), 
+            (const void*, size_t, cudaMemoryAdvise, int), 
+            (devPtr, count, advice, device),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemAdvise_v2, 
+            (const void* devPtr, size_t count, cudaMemoryAdvise advice, cudaMemLocation location), 
+            (const void*, size_t, cudaMemoryAdvise, cudaMemLocation), 
+            (devPtr, count, advice, location),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemGetInfo, 
+            (size_t* free, size_t* total), 
+            (size_t*, size_t*), 
+            (free, total),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemPrefetchAsync, 
+            (const void* devPtr, size_t count, int dstDevice, cudaStream_t stream), 
+            (const void*, size_t, int, cudaStream_t), 
+            (devPtr, count, dstDevice, stream),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemRangeGetAttribute, 
+            (void* data, size_t dataSize, cudaMemRangeAttribute attribute, const void* devPtr, size_t count), 
+            (void*, size_t, cudaMemRangeAttribute, const void*, size_t), 
+            (data, dataSize, attribute, devPtr, count),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemRangeGetAttributes, 
+            (void** data, size_t* dataSizes, cudaMemRangeAttribute** attributes, size_t numAttributes, const void* devPtr, size_t count), 
+            (void**, size_t*, cudaMemRangeAttribute**, size_t, const void*, size_t), 
+            (data, dataSizes, attributes, numAttributes, devPtr, count),
+            
+        )
+        
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpy2D, 
+            (void* dst, size_t dpitch, const void* src, size_t spitch, size_t width, size_t height, cudaMemcpyKind kind), 
+            (void*, size_t, const void*, size_t, size_t, size_t, cudaMemcpyKind), 
+            (dst, dpitch, src, spitch, width, height, kind),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpy2DArrayToArray, 
+            (cudaArray_t dst, size_t wOffsetDst, size_t hOffsetDst, cudaArray_const_t src, size_t wOffsetSrc, size_t hOffsetSrc, size_t width, size_t height, cudaMemcpyKind kind), 
+            (cudaArray_t, size_t, size_t, cudaArray_const_t, size_t, size_t, size_t, size_t, cudaMemcpyKind), 
+            (dst, wOffsetDst, hOffsetDst, src, wOffsetSrc, hOffsetSrc, width, height, kind),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpy2DAsync, 
+            (void* dst, size_t dpitch, const void* src, size_t spitch, size_t width, size_t height, cudaMemcpyKind kind, cudaStream_t stream), 
+            (void*, size_t, const void*, size_t, size_t, size_t, cudaMemcpyKind, cudaStream_t), 
+            (dst, dpitch, src, spitch, width, height, kind, stream),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpy2DFromArray, 
+            (void* dst, size_t dpitch, cudaArray_const_t src, size_t wOffset, size_t hOffset, size_t width, size_t height, cudaMemcpyKind kind), 
+            (void*, size_t, cudaArray_const_t, size_t, size_t, size_t, size_t, cudaMemcpyKind), 
+            (dst, dpitch, src, wOffset, hOffset, width, height, kind),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpy2DFromArrayAsync, 
+            (void* dst, size_t dpitch, cudaArray_const_t src, size_t wOffset, size_t hOffset, size_t width, size_t height, cudaMemcpyKind kind, cudaStream_t stream), 
+            (void*, size_t, cudaArray_const_t, size_t, size_t, size_t, size_t, cudaMemcpyKind, cudaStream_t), 
+            (dst, dpitch, src, wOffset, hOffset, width, height, kind, stream),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpy2DToArrayAsync, 
+            (cudaArray_t dst, size_t wOffset, size_t hOffset, const void* src, size_t spitch, size_t width, size_t height, cudaMemcpyKind kind, cudaStream_t stream), 
+            (cudaArray_t, size_t, size_t, const void*, size_t, size_t, size_t, cudaMemcpyKind, cudaStream_t), 
+            (dst, wOffset, hOffset, src, spitch, width, height, kind, stream),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpy3D, 
+            (const cudaMemcpy3DParms* p), 
+            (const cudaMemcpy3DParms*), 
+            (p),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpy3DAsync, 
+            (const cudaMemcpy3DParms* p, cudaStream_t stream), 
+            (const cudaMemcpy3DParms*, cudaStream_t), 
+            (p, stream),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpy3DPeer, 
+            (const cudaMemcpy3DPeerParms* p), 
+            (const cudaMemcpy3DPeerParms*), 
+            (p),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpy3DPeerAsync, 
+            (const cudaMemcpy3DPeerParms* p, cudaStream_t stream), 
+            (const cudaMemcpy3DPeerParms*, cudaStream_t), 
+            (p, stream),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpyFromSymbol, 
+            (void* dst, const void* symbol, size_t count, size_t offset, cudaMemcpyKind kind), 
+            (void*, const void*, size_t, size_t, cudaMemcpyKind), 
+            (dst, symbol, count, offset, kind),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpyFromSymbolAsync, 
+            (void* dst, const void* symbol, size_t count, size_t offset, cudaMemcpyKind kind, cudaStream_t stream), 
+            (void*, const void*, size_t, size_t, cudaMemcpyKind, cudaStream_t), 
+            (dst, symbol, count, offset, kind, stream),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpyPeer, 
+            (void* dst, int dstDevice, const void* src, int srcDevice, size_t count), 
+            (void*, int, const void*, int, size_t), 
+            (dst, dstDevice, src, srcDevice, count),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpyPeerAsync, 
+            (void* dst, int dstDevice, const void* src, int srcDevice, size_t count, cudaStream_t stream), 
+            (void*, int, const void*, int, size_t, cudaStream_t), 
+            (dst, dstDevice, src, srcDevice, count, stream),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpyToSymbol, 
+            (const void* symbol, const void* src, size_t count, size_t offset, cudaMemcpyKind kind), 
+            (const void*, const void*, size_t, size_t, cudaMemcpyKind), 
+            (symbol, src, count, offset, kind),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemcpyToSymbolAsync, 
+            (const void* symbol, const void* src, size_t count, size_t offset, cudaMemcpyKind kind, cudaStream_t stream), 
+            (const void*, const void*, size_t, size_t, cudaMemcpyKind, cudaStream_t), 
+            (symbol, src, count, offset, kind, stream),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemset, 
+            (void* devPtr, int value, size_t count), 
+            (void*, int, size_t), 
+            (devPtr, value, count),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemset2D, 
+            (void* devPtr, size_t pitch, int value, size_t width, size_t height), 
+            (void*, size_t, int, size_t, size_t), 
+            (devPtr, pitch, value, width, height),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemset2DAsync, 
+            (void* devPtr, size_t pitch, int value, size_t width, size_t height, cudaStream_t stream), 
+            (void*, size_t, int, size_t, size_t, cudaStream_t), 
+            (devPtr, pitch, value, width, height, stream),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemset3D, 
+            (cudaPitchedPtr pitchedDevPtr, int value, cudaExtent extent), 
+            (cudaPitchedPtr, int, cudaExtent), 
+            (pitchedDevPtr, value, extent),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMemset3DAsync, 
+            (cudaPitchedPtr pitchedDevPtr, int value, cudaExtent extent, cudaStream_t stream), 
+            (cudaPitchedPtr, int, cudaExtent, cudaStream_t), 
+            (pitchedDevPtr, value, extent, stream),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMipmappedArrayGetMemoryRequirements, 
+            (cudaArrayMemoryRequirements* memoryRequirements, cudaMipmappedArray_t mipmap, int device), 
+            (cudaArrayMemoryRequirements*, cudaMipmappedArray_t, int), 
+            (memoryRequirements, mipmap, device),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            cudaError_t, 
+            cudaMipmappedArrayGetSparseProperties, 
+            (cudaArraySparseProperties* sparseProperties, cudaMipmappedArray_t mipmap), 
+            (cudaArraySparseProperties*, cudaMipmappedArray_t), 
+            (sparseProperties, mipmap),
+            
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclAllReduce, 
+            (const void* sendbuff, void* recvbuff, size_t count, ncclDataType_t datatype, ncclRedOp_t op, ncclComm_t comm, cudaStream_t stream), 
+            (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t), 
+            (sendbuff, recvbuff, count, datatype, op, comm, stream),
+            
+            [=]() { total_allreduce_count.fetch_add(count, std::memory_order_relaxed); }
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclBroadcast, 
+            (const void* sendbuff, void* recvbuff, size_t count, ncclDataType_t datatype, int root, ncclComm_t comm, cudaStream_t stream), 
+            (const void*, void*, size_t, ncclDataType_t, int, ncclComm_t, cudaStream_t), 
+            (sendbuff, recvbuff, count, datatype, root, comm, stream),
+            
+            [=]() { total_broadcast_count.fetch_add(count, std::memory_order_relaxed); }
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclBcast, 
+            (void* buff, size_t count, ncclDataType_t datatype, int root, ncclComm_t comm, cudaStream_t stream), 
+            (void*, size_t, ncclDataType_t, int, ncclComm_t, cudaStream_t), 
+            (buff, count, datatype, root, comm, stream)
+        )
 
-    // }
-    // slog_file.close();
-    fprintf(log_file, "Replay log\n");
-    printf("Replay log\n");
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclReduce, 
+            (const void* sendbuff, void* recvbuff, size_t count, ncclDataType_t datatype, ncclRedOp_t op, int root, ncclComm_t comm, cudaStream_t stream), 
+            (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, int, ncclComm_t, cudaStream_t), 
+            (sendbuff, recvbuff, count, datatype, op, root, comm, stream),
+            
+            [=]() { total_reduce_count.fetch_add(count, std::memory_order_relaxed); }
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclAllGather, 
+            (const void* sendbuff, void* recvbuff, size_t sendcount, ncclDataType_t datatype, ncclComm_t comm, cudaStream_t stream), 
+            (const void*, void*, size_t, ncclDataType_t, ncclComm_t, cudaStream_t), 
+            (sendbuff, recvbuff, sendcount, datatype, comm, stream),
+            
+            [=]() { total_allgather_count.fetch_add(sendcount, std::memory_order_relaxed); }
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclReduceScatter, 
+            (const void* sendbuff, void* recvbuff, size_t recvcount, ncclDataType_t datatype, ncclRedOp_t op, ncclComm_t comm, cudaStream_t stream), 
+            (const void*, void*, size_t, ncclDataType_t, ncclRedOp_t, ncclComm_t, cudaStream_t), 
+            (sendbuff, recvbuff, recvcount, datatype, op, comm, stream),
+            
+            [=]() { total_reducescatter_count.fetch_add(recvcount, std::memory_order_relaxed); }
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclMemAlloc, 
+            (void **ptr, size_t size), 
+            (void**, size_t), 
+            (ptr, size),
+            
+            [=]() { total_ncclmemalloc_count.fetch_add(size, std::memory_order_relaxed); }
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclMemFree, 
+            (void *ptr), 
+            (void*), 
+            (ptr)
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclCommDeregister, 
+            (const ncclComm_t comm, void* handle), 
+            (ncclComm_t, void*), 
+            (comm, handle)
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclCommRegister, 
+            (const ncclComm_t comm, void* buff, size_t size, void** handle), 
+            (ncclComm_t, void*, size_t, void**), 
+            (comm, buff, size, handle)
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclCommUserRank, 
+            (const ncclComm_t comm, int* rank), 
+            (ncclComm_t, int*), 
+            (comm, rank)
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclCommCuDevice, 
+            (const ncclComm_t comm, int* device), 
+            (ncclComm_t, int*), 
+            (comm, device)
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclCommCount, 
+            (const ncclComm_t comm, int* count), 
+            (ncclComm_t, int*), 
+            (comm, count)
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclCommInitAll, 
+            (ncclComm_t* comms, int ndev, const int* devlist), 
+            (ncclComm_t*, int, const int*), 
+            (comms, ndev, devlist)
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclSend, 
+            (const void* sendbuff, size_t count, ncclDataType_t datatype, int peer, ncclComm_t comm, cudaStream_t stream), 
+            (const void*, size_t, ncclDataType_t, int, ncclComm_t, cudaStream_t), 
+            (sendbuff, count, datatype, peer, comm, stream)
+        )
+        
+        REPLAY_DISPATCH(
+            ncclResult_t, 
+            ncclRecv, 
+            (void* recvbuff, size_t count, ncclDataType_t datatype, int peer, ncclComm_t comm, cudaStream_t stream), 
+            (void*, size_t, ncclDataType_t, int, ncclComm_t, cudaStream_t), 
+            (recvbuff, count, datatype, peer, comm, stream)
+        )
+
+    }
+    slog_file.close();
+    return result;
+    printf("Done Replaying log\n");
 }
 
 void handlePreOptStepTransientError() {
@@ -287,6 +963,13 @@ void checkAppLog() {
 
 
 #if TRACK_CUDA
+CREATE_HOOKED_CUDA_FUNCTION(
+        cudaError_t, 
+        cudaLaunchKernel,
+        (const void* func, dim3 gridDim, dim3 blockDim, void** args, size_t sharedMem, cudaStream_t stream),
+        (const void*, dim3, dim3, void**, size_t, cudaStream_t),
+        (func, gridDim, blockDim, args, sharedMem, stream),
+)
 CREATE_HOOKED_CUDA_FUNCTION(
 		cudaError_t, 
 		cudaMemcpy,
