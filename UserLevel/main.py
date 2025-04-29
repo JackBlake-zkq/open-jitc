@@ -20,7 +20,7 @@ import subprocess
 import select
 import shutil
 import sys
-from copy import deepcopy
+from datetime import datetime, timedelta
 
 # print("GIL Enabled:", sys._is_gil_enabled())
 
@@ -53,87 +53,87 @@ raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
 
 # signal.signal(signal.SIGUSR1, handle_sigusr1)
 
-def forcibly_kill_process():
-    os.kill(os.getpid(), signal.SIGKILL)
+# def forcibly_kill_process():
+#     os.kill(os.getpid(), signal.SIGKILL)
 
-def handle_failure():
-    global stop, app_log_file
-    app_log_file.write("failed\n")
-    app_log_file.flush()
-    stop = True
-    if not in_opt_step:
-        # os.kill(os.getpid(), signal.SIGUSR1)
-        time.sleep(1)
-        checkpoint_state()
+# def handle_failure():
+#     global stop, app_log_file
+#     app_log_file.write("failed\n")
+#     app_log_file.flush()
+#     stop = True
+#     if not in_opt_step:
+#         # os.kill(os.getpid(), signal.SIGUSR1)
+#         time.sleep(1)
+#         checkpoint_state()
 
 
-def master_send_failure_to_clients(skip=[]):
-    global connections
-    for conn in connections:
-        if conn in skip:
-            continue
-        conn.sendall("failed".encode('utf-8'))
-    print("Master sent failure to clients")
+# def master_send_failure_to_clients(skip=[]):
+#     global connections
+#     for conn in connections:
+#         if conn in skip:
+#             continue
+#         conn.sendall("failed".encode('utf-8'))
+#     print("Master sent failure to clients")
 
-def master_recv_and_forward_failures():
-    global connections, stop
-    ready, _, _ = select.select(connections, [], [], 1)
-    for conn in ready:
-        try:
-            data = conn.recv(1024).decode('utf-8')
-        except:
-            print("Connection closed")
-            connections.remove(conn)
-            continue
-        if "failed" in data:
-            print(f"Master received failure signal: {data}")
-            master_send_failure_to_clients(skip=[conn])
-            handle_failure()
+# def master_recv_and_forward_failures():
+#     global connections, stop
+#     ready, _, _ = select.select(connections, [], [], 1)
+#     for conn in ready:
+#         try:
+#             data = conn.recv(1024).decode('utf-8')
+#         except:
+#             print("Connection closed")
+#             connections.remove(conn)
+#             continue
+#         if "failed" in data:
+#             print(f"Master received failure signal: {data}")
+#             master_send_failure_to_clients(skip=[conn])
+#             handle_failure()
         
-def send_failure_to_master():
-    global client_socket
-    if client_socket:
-        client_socket.sendall("failed".encode('utf-8'))
-        print("Client sent failure to master")
+# def send_failure_to_master():
+#     global client_socket
+#     if client_socket:
+#         client_socket.sendall("failed".encode('utf-8'))
+#         print("Client sent failure to master")
 
 
-def recv_failure_from_master():
-    global client_socket, stop
-    ready, _, _ = select.select([client_socket], [], [], 1)
-    if ready:
-        data = ready[0].recv(1024).decode('utf-8')
-        if "failed" in data:
-            handle_failure()
+# def recv_failure_from_master():
+#     global client_socket, stop
+#     ready, _, _ = select.select([client_socket], [], [], 1)
+#     if ready:
+#         data = ready[0].recv(1024).decode('utf-8')
+#         if "failed" in data:
+#             handle_failure()
 
 
-# --- Watchdog ---
-def setup_watchdog(stop_event, rank):
-    def watchdog():
-        global client_socket, connections
-        while True:
-            if stop_event.is_set():
-                print("Stop event set!")
-                if rank == 0:
-                    master_send_failure_to_clients()
-                    forcibly_kill_process()
-                else:
-                    send_failure_to_master()
-                    forcibly_kill_process()
-            if rank == 0:
-                master_recv_and_forward_failures()
-            else:
-                recv_failure_from_master()
-            time.sleep(0.1)
-        # with open(f'/tmp/interceptor_0.log', 'r') as f:
-        #     for line in f:
-        #         if "Allreduce hang detected" in line:
-        #             print("Allreduce hang detected")
-        #             checkpoint_state()
-        #             forcibly_kill_process()
+# # --- Watchdog ---
+# def setup_watchdog(stop_event, rank):
+#     def watchdog():
+#         global client_socket, connections
+#         while True:
+#             if stop_event.is_set():
+#                 print("Stop event set!")
+#                 if rank == 0:
+#                     master_send_failure_to_clients()
+#                     forcibly_kill_process()
+#                 else:
+#                     send_failure_to_master()
+#                     forcibly_kill_process()
+#             if rank == 0:
+#                 master_recv_and_forward_failures()
+#             else:
+#                 recv_failure_from_master()
+#             time.sleep(0.1)
+#         # with open(f'/tmp/interceptor_0.log', 'r') as f:
+#         #     for line in f:
+#         #         if "Allreduce hang detected" in line:
+#         #             print("Allreduce hang detected")
+#         #             checkpoint_state()
+#         #             forcibly_kill_process()
 
-    watchdog_thread = threading.Thread(target=watchdog, daemon=True)
-    watchdog_thread.start()
-    return watchdog_thread
+#     watchdog_thread = threading.Thread(target=watchdog, daemon=True)
+#     watchdog_thread.start()
+#     return watchdog_thread
 
 def master_consolidate_checkpoints():
     global jit_checkpoint_dir, addrs
@@ -174,11 +174,11 @@ def checkpoint_state():
     global optimizer, epoch, batch_idx, raw_model, ddp_model
     print("Checkpointing state")
     path = f"{jit_checkpoint_dir}/jit.cp"
-    cp = deepcopy(raw_model).cpu()
-    print("deep copy done")
-    print(cp.state_dict())
+    cpu_model = raw_model.cpu()
+    print("move to cpu done")
+    print(cpu_model.state_dict())
     torch.save({
-            'model_state': cp.state_dict(),
+            'model_state': cpu_model.state_dict(),
             'optimizer_state': optimizer.state_dict(),
             'epoch': epoch,
             'batch_idx': batch_idx,
@@ -198,7 +198,7 @@ def recover_state():
     return checkpoint['epoch'], checkpoint['batch_idx']
 
 # --- Training ---
-def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog_stop_event, sampler):
+def train_model(model, train_loader, optimizer, criterion, epoch, rank, sampler):
     model.train()
     start_time = time.time()
     log_iter_start = time.time()
@@ -243,7 +243,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
                 print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
                 log_iter_start = time.time()
     except BaseException as e:
-        watchdog_stop_event.set()
+        # watchdog_stop_event.set()
         print("Caught exception:", e)
 
 
@@ -261,9 +261,6 @@ def test_model(model, test_loader, criterion):
             correct += pred.eq(target).sum().item()
     print(f"Test set: Average loss {test_loss/len(test_loader):.4f}, Accuracy {correct}/{len(test_loader.dataset)}")
 
-# --- DDP Environment Setup ---
-def init_process(master_ip, rank, size, backend='nccl'):
-    dist.init_process_group(backend, init_method=f"tcp://{master_ip}:6585", rank=rank, world_size=size)
 
 def run(rank, size, from_checkpoint):
     print("Using Checkpoint" if from_checkpoint else "Not using Checkpoint")
@@ -298,9 +295,9 @@ def run(rank, size, from_checkpoint):
             master_consolidate_checkpoints()
         epoch, batch_idx = recover_state()
 
-    watchdog_stop_event = threading.Event()
-    watchdog_thread = setup_watchdog(watchdog_stop_event, rank)
-    sampler.set_epoch(epoch)
+    # watchdog_stop_event = threading.Event()
+    # watchdog_thread = setup_watchdog(watchdog_stop_event, rank)
+    # sampler.set_epoch(epoch)
 
     for epoch in range(num_epochs):
         train_model(ddp_model, train_loader, optimizer, criterion, epoch, rank, watchdog_stop_event, sampler)
@@ -353,5 +350,5 @@ if __name__ == "__main__":
     with open(f'output/{log_file_name}', 'w') as f:
         f.write("epoch,iteration,elapsed_time\n")
 
-    init_process(args.master_ip, args.rank, args.num_nodes)
+    dist.init_process_group("nccl", init_method=f"tcp://{args.master_ip}:6585", rank=args.rank, world_size=args.num_nodes, timeout=timedelta(seconds=args.all_reduce_timeout))
     run(args.rank, args.num_nodes, args.from_checkpoint)
