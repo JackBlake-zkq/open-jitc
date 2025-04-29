@@ -21,6 +21,8 @@ import select
 import shutil
 import sys
 
+print("GIL Enabled:", sys._is_gil_enabled())
+
 # --- Configuration ---
 torch.set_num_threads(4)
 seed = 2021
