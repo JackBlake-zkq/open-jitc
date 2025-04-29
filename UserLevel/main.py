@@ -259,7 +259,6 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
     except BaseException as e:
         watchdog_stop_event.set()
         print("Caught exception:", e)
-        raise e
 
 
 # --- Testing ---
@@ -364,5 +363,6 @@ if __name__ == "__main__":
     with open(f'output/{log_file_name}', 'w') as f:
         f.write("epoch,iteration,elapsed_time\n")
 
-    dist.init_process_group("nccl", init_method=f"tcp://{args.master_ip}:6585", rank=args.rank, world_size=args.num_nodes, timeout=timedelta(seconds=args.all_reduce_timeout))
+    dist.init_process_group("nccl", init_method=f"tcp://{args.master_ip}:6585", rank=args.rank, world_size=args.num_nodes)
+        # dist.init_process_group("nccl", init_method=f"tcp://{args.master_ip}:6585", rank=args.rank, world_size=args.num_nodes, timeout=timedelta(seconds=args.all_reduce_timeout))
     run(args.rank, args.num_nodes, args.from_checkpoint)
