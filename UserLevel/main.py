@@ -20,6 +20,7 @@ import subprocess
 import select
 import shutil
 import sys
+from torch.distributed.checkpoint.state_dict import get_state_dict
 
 # print("GIL Enabled:", sys._is_gil_enabled())
 
@@ -173,10 +174,10 @@ def checkpoint_state():
     global optimizer, epoch, batch_idx, raw_model, ddp_model
     print("Checkpointing state")
     path = f"{jit_checkpoint_dir}/jit.cp"
-    torch.cuda.synchronize()
-    print(raw_model.state_dict())
+    state_dict = get_state_dict(ddp_model)
+    print(state_dict)
     torch.save({
-            'model_state': raw_model.state_dict(),
+            'model_state': state_dict,
             'optimizer_state': optimizer.state_dict(),
             'epoch': epoch,
             'batch_idx': batch_idx,
