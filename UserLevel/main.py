@@ -235,6 +235,11 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
 
             loss.backward()
 
+            # gradient commmunication using all_reduce
+            for param in model.parameters():
+                dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
+                param.grad.data /= args.num_nodes
+
             in_opt_step = True
 
             if stop:
@@ -310,7 +315,7 @@ def run(rank, size, from_checkpoint):
     sampler.set_epoch(epoch)
 
     for epoch in range(num_epochs):
-        train_model(raw_model, train_loader, optimizer, criterion, epoch, rank, watchdog_stop_event sampler)
+        train_model(raw_model, train_loader, optimizer, criterion, epoch, rank, watchdog_stop_event, sampler)
 
     if rank == 0:
         test_model(raw_model, test_loader, criterion)
