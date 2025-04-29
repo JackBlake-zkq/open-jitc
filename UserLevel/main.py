@@ -21,7 +21,7 @@ import select
 import shutil
 import sys
 
-print("GIL Enabled:", sys._is_gil_enabled())
+# print("GIL Enabled:", sys._is_gil_enabled())
 
 # --- Configuration ---
 torch.set_num_threads(4)
