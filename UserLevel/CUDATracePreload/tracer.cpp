@@ -33,17 +33,10 @@
 	return_type func_name args { \
 		return_type (*original_##func_name) arg_types = NULL; \
 		original_##func_name = (return_type (*) arg_types)dlsym(RTLD_NEXT, #func_name); \
-		int deviceID; \
-		cudaGetDevice(&deviceID); \
 		print_str(#func_name ":"); \
 		EXPAND_ARGS arg_names \
 		print_str("\n");\
-        checkAppLog(); \
-	cudaError_t result = original_##func_name arg_names; \
-        if(isPreOptStepTrainsientError(result)) { \
-            handlePreOptStepTransientError(); \
-            return cudaSuccess; \
-        } \
+	    cudaError_t result = original_##func_name arg_names; \
         PRE_RETURN_HOOK \
         return result; \
 	}
