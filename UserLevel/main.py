@@ -175,6 +175,7 @@ def checkpoint_state():
     print("Checkpointing state")
     path = f"{jit_checkpoint_dir}/jit.cp"
     cp = deepcopy(raw_model).cpu()
+    print("deep copy done")
     print(cp.state_dict())
     torch.save({
             'model_state': cp.state_dict(),
