@@ -170,16 +170,18 @@ def master_consolidate_checkpoints():
     
 
 def checkpoint_state():
-    global optimizer, epoch, batch_idx, raw_model
+    global optimizer, epoch, batch_idx, raw_model, ddp_model
     print("Checkpointing state")
     path = f"{jit_checkpoint_dir}/jit.cp"
-    print(raw_model.state_dict())
-    torch.save({
-            'model_state': raw_model.state_dict(),
-            'optimizer_state': optimizer.state_dict(),
-            'epoch': epoch,
-            'batch_idx': batch_idx,
-    }, path)
+    with ddp_model.no_sync():
+        with torch.no_grad():
+            print(raw_model.state_dict())
+            torch.save({
+                    'model_state': raw_model.state_dict(),
+                    'optimizer_state': optimizer.state_dict(),
+                    'epoch': epoch,
+                    'batch_idx': batch_idx,
+            }, path)
 
 def recover_state():
     global jit_checkpoint_dir, raw_model, optimizer, epoch, batch_idx
