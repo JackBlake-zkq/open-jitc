@@ -135,6 +135,15 @@ raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
 #     watchdog_thread.start()
 #     return watchdog_thread
 
+
+def handle_sigabrt(signum, frame):
+    print("SIGABRT received")
+    checkpoint_state()
+    sys.exit(1)
+
+# Register the handler
+signal.signal(signal.SIGABRT, handle_sigabrt)
+
 def master_consolidate_checkpoints():
     global jit_checkpoint_dir, addrs
     print("Consolidating checkpoints")
@@ -203,48 +212,49 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, sampler)
     start_time = time.time()
     log_iter_start = time.time()
     global args, stop, in_opt_step, watchdog_thread
-    try:
-        for batch_idx, (data, target) in enumerate(train_loader):
-            if batch_idx >= stop_iter:
-                break
-            if stop:
-                checkpoint_state()
-                sys.exit(1)
+    # try:
+    for batch_idx, (data, target) in enumerate(train_loader):
+        if batch_idx >= stop_iter:
+            break
+        if stop:
+            checkpoint_state()
+            sys.exit(1)
 
-            in_opt_step = False
+        in_opt_step = False
 
-            data, target = data.to(device), target.to(device)
+        data, target = data.to(device), target.to(device)
 
-            output = model(data)
+        output = model(data)
 
-            loss = criterion(output, target)
-            
-            if args.error_before_opt_step and batch_idx == 20 and epoch == 0:
-                raise RuntimeError("Simulated error before all_reduce")
+        loss = criterion(output, target)
+        
+        if args.error_before_opt_step and batch_idx == 20 and epoch == 0:
+            raise RuntimeError("Simulated error before all_reduce")
 
-            optimizer.zero_grad()
+        optimizer.zero_grad()
 
-            loss.backward()
+        loss.backward()
 
-            in_opt_step = True
+        in_opt_step = True
 
-            if stop:
-                watchdog_thread.join()
-                sys.exit(1)
+        if stop:
+            watchdog_thread.join()
+            sys.exit(1)
 
-            optimizer.step()
+        optimizer.step()
 
-            # Logging
-            elapsed_time = time.time() - start_time
-            start_time = time.time()
+        # Logging
+        elapsed_time = time.time() - start_time
+        start_time = time.time()
 
-            if (batch_idx + 1) % log_iter == 0 and rank == 0:
-                iter_time = time.time() - log_iter_start
-                print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
-                log_iter_start = time.time()
-    except BaseException as e:
-        # watchdog_stop_event.set()
-        print("Caught exception:", e)
+        if (batch_idx + 1) % log_iter == 0 and rank == 0:
+            iter_time = time.time() - log_iter_start
+            print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
+            log_iter_start = time.time()
+    # except BaseException as e:
+    #     # watchdog_stop_event.set()
+    #     print("Caught exception:", e)
+    #     raise e
 
 
 # --- Testing ---
