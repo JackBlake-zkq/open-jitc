@@ -12,6 +12,7 @@
 #include <fstream>
 #include <set>
 #include <fcntl.h>
+#include <random>
 
 #if TRACK_CUDA
 #include <cuda_runtime.h>
@@ -199,12 +200,22 @@ void printIfPrintable(const T& value) {
     ss << ' ';
     fprintf(log_file, "%s", ss.str().c_str());
 }
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_real_distribution<float> distrib(-1.0f, 1.0f);
 
 bool isPreOptStepTrainsientError(cudaError_t result) {
     if(inOptStep) {
         return false;
     }
-    return rand() < 0.001;
+
+    bool err = distrib(gen) < 0.001f;
+    if (err) {
+        printf("Transient error occurred\n");
+        fflush(stdout);
+        return true;
+    }
+    return false;
 }
 
 cudaError_t replayLog() {
