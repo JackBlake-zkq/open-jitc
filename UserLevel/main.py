@@ -264,6 +264,9 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
 
             print("Entering optimizer step")
 
+            if args.error_during_opt_step and batch_idx == 1 and epoch == 0:
+                raise RuntimeError("Simulated error after all_reduce")
+
             optimizer.step()
 
             if (batch_idx + 1) % log_iter == 0 and rank == 0:
@@ -364,6 +367,7 @@ if __name__ == "__main__":
     parser.add_argument('--stop_iter', type=int, default=40)
     parser.add_argument('--total_batch_size', type=int, default=256)
     parser.add_argument('--error_before_opt_step', action='store_true', default=False, help='Simulate error before optimizer step')
+    parser.add_argument('--error_during_opt_step', action='store_true', default=False, help='Simulate error during optimizer step')
     parser.add_argument('--all_reduce_timeout', type=int, default=10, help='Timeout for a single batch in seconds')
     parser.add_argument('--from_checkpoint', action='store_true', default=False, help='Load from checkpoint')
     parser.add_argument('--model', type=str, default='VGG11', choices=['VGG11', 'ResNet152', 'VGG19'], help='Model to use')
