@@ -30,7 +30,7 @@ import torchvision.models as models
 seed = 2021
 torch.manual_seed(seed)
 np.random.seed(seed)
-log_iter = 20
+log_iter = 1
 device = torch.device("cpu")  # Will be overridden per rank
 jit_checkpoint_dir = "/tmp/jit_checkpoints"
 
@@ -223,7 +223,6 @@ def recover_state():
 # --- Training ---
 def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog_stop_event, sampler):
     model.train()
-    start_time = time.time()
     log_iter_start = time.time()
     global args, stop, in_opt_step, watchdog_thread
     try:
