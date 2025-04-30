@@ -51,6 +51,7 @@ def forcibly_kill_process():
     os.kill(os.getpid(), signal.SIGKILL)
 
 def handle_failure():
+    """Return true if thread should return"""
     global stop, app_log_file
     app_log_file.write("failed\n")
     app_log_file.flush()
@@ -59,10 +60,10 @@ def handle_failure():
         time.sleep(1)
         checkpoint_state()
         forcibly_kill_process()
+        return False
     else:
         print("In optimizer step, waiting for opt step to finish before checkpointing")
-
-
+        return True
 def master_send_failure_to_clients(skip=[]):
     global connections
     for conn in connections:
@@ -72,6 +73,7 @@ def master_send_failure_to_clients(skip=[]):
     print("Master sent failure to clients")
 
 def master_recv_and_forward_failures():
+    """Return true iff thread should return"""
     global connections, stop
     ready, _, _ = select.select(connections, [], [], 1)
     for conn in ready:
@@ -84,7 +86,7 @@ def master_recv_and_forward_failures():
         if "failed" in data:
             print(f"Master received failure signal: {data}")
             master_send_failure_to_clients(skip=[conn])
-            handle_failure()
+            return handle_failure()
         
 def send_failure_to_master():
     global client_socket
@@ -94,12 +96,13 @@ def send_failure_to_master():
 
 
 def recv_failure_from_master():
+    """Return true iff thread should return"""
     global client_socket, stop
     ready, _, _ = select.select([client_socket], [], [], 1)
     if ready:
         data = ready[0].recv(1024).decode('utf-8')
         if "failed" in data:
-            handle_failure()
+            return handle_failure()
 
 
 # --- Watchdog ---
@@ -116,9 +119,11 @@ def setup_watchdog(stop_event, rank):
                     send_failure_to_master()
                     forcibly_kill_process()
             if rank == 0:
-                master_recv_and_forward_failures()
+                if master_recv_and_forward_failures():
+                    return
             else:
-                recv_failure_from_master()
+                if recv_failure_from_master():
+                    return
             time.sleep(0.1)
         # with open(f'/tmp/interceptor_0.log', 'r') as f:
         #     for line in f:
@@ -240,22 +245,15 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
 
             loss.backward()
 
-            s = torch.cuda.Stream()
-
             # gradient commmunication using all_reduce
             for param in model.parameters():
-                handle = dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM, async_op=True)
-                handle.wait()
+                dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
                 param.grad.data /= args.num_nodes
-
-            with torch.cuda.stream(s):
-                s.wait_stream(torch.cuda.default_stream())
 
             in_opt_step = True
 
             if stop:
                 watchdog_thread.join()
-                sys.exit(1)
 
             optimizer.step()
 
@@ -309,9 +307,9 @@ def run(rank, size, from_checkpoint, model_name):
     if model_name == 'VGG11':
         raw_model = mdl.VGG11().to(device)
     elif model_name == 'ResNet152':
-        raw_model = models.resnet152(pretrained=False, num_classes=10).to(device)
+        raw_model = models.resnet152(weights=None, num_classes=10).to(device)
     elif model_name == 'Vit-H':
-        raw_model = models.vit_h_14(pretrained=False, num_classes=10).to(device)
+        raw_model = models.vit_h_14(weights=None, num_classes=10).to(device)
     
     model_param_bytes = sum(p.element_size() * p.nelement() for p in raw_model.parameters())
     print(f"Model Size (GB): {model_param_bytes / (1024*1024*1024)}")
