@@ -253,7 +253,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
             for param in model.parameters():
                 dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
                 param.grad.data /= args.num_nodes
-
+            print("After all_reduce")
             in_opt_step = True
 
             if stop:
