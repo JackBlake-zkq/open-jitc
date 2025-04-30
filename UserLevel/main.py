@@ -204,7 +204,7 @@ def recover_state():
         try:
             with open(path, "w") as f:
                 break 
-        except (PermissionError, IOError):
+        except (PermissionError, IOError, EOFError):
             time.sleep(1) #file is being written to still, wait
     checkpoint = torch.load(path, map_location=device)
     raw_model.load_state_dict(checkpoint['model_state'])
