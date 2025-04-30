@@ -229,12 +229,12 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
         for batch_idx, (data, target) in enumerate(train_loader):
             if batch_idx >= stop_iter:
                 break
+            in_opt_step = False
             if stop:
                 print("Stop detected, beggining of batch, will checkpoint")
                 checkpoint_state()
                 sys.exit(1)
 
-            in_opt_step = False
 
             data, target = data.to(device), target.to(device)
 
