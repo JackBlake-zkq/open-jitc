@@ -308,6 +308,8 @@ def run(rank, size, from_checkpoint):
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
     
     raw_model = mdl.VGG11().to(device)
+    model_param_bytes = sum(p.element_size() * p.nelement() for p in raw_model.parameters())
+    print(f"Model Size (GB): {model_param_bytes / (1024*1024*1024)}")
     # ddp_model = DDP(raw_model, device_ids=[0] if torch.cuda.is_available() else None)
     optimizer = optim.SGD(raw_model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0001)
     criterion = nn.CrossEntropyLoss().to(device)
