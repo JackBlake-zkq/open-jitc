@@ -292,7 +292,6 @@ def run(rank, size, from_checkpoint, model_name):
     global device, addrs, raw_model, ddp_model, optimizer, epoch, batch_idx, watchdog_thread
     device = torch.device(f"cuda:0" if torch.cuda.is_available() else "cpu")
     train_transforms = [
-        transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.49, 0.48, 0.45], std=[0.25, 0.24, 0.26]),
@@ -301,7 +300,6 @@ def run(rank, size, from_checkpoint, model_name):
     resize = [transforms.Resize((224, 224))]
     if model_name == 'Vit-H':
         train_transforms = resize + train_transforms
-    print(train_transforms)
     transform_train = transforms.Compose(train_transforms)
 
     test_transforms = [
