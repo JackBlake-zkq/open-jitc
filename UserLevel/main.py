@@ -227,6 +227,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
             if batch_idx >= stop_iter:
                 break
             if stop:
+                print("Stop detected, beggining of batch, will checkpoint")
                 checkpoint_state()
                 sys.exit(1)
 
@@ -253,7 +254,7 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
             in_opt_step = True
 
             if stop:
-                print("Stop set")
+                print("Stop set, after all_reduce")
                 watchdog_thread.join()
                 print("Watchdog returned, will checkpoint at beginning of next batch")
 
