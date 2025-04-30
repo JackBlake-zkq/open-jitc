@@ -322,8 +322,8 @@ def run(rank, size, from_checkpoint, model_name):
         raw_model = mdl.VGG11().to(device)
     elif model_name == 'ResNet152':
         raw_model = models.resnet152(weights=None, num_classes=10).to(device)
-    elif model_name == 'Vit-H':
-        raw_model = models.vit_h_14(weights=None, num_classes=10).to(device)
+    elif model_name == 'VGG19':
+        raw_model = models.vgg19(weights=None, num_classes=10).to(device)
     
     model_param_bytes = sum(p.element_size() * p.nelement() for p in raw_model.parameters())
     print(f"Model Size (GB): {model_param_bytes / (1024*1024*1024)}")
@@ -361,7 +361,7 @@ if __name__ == "__main__":
     parser.add_argument('--error_before_opt_step', action='store_true', default=False, help='Simulate error before optimizer step')
     parser.add_argument('--all_reduce_timeout', type=int, default=10, help='Timeout for a single batch in seconds')
     parser.add_argument('--from_checkpoint', action='store_true', default=False, help='Load from checkpoint')
-    parser.add_argument('--model', type=str, default='VGG11', choices=['VGG11', 'ResNet152', 'Vit-H'], help='Model to use')
+    parser.add_argument('--model', type=str, default='VGG11', choices=['VGG11', 'ResNet152', 'VGG19'], help='Model to use')
     args = parser.parse_args()
 
     client_socket = None
