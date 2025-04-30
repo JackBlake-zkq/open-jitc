@@ -261,6 +261,8 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
                 watchdog_thread.join()
                 print("Watchdog returned, will checkpoint at beginning of next batch")
 
+            print("Entering optimizer step")
+
             optimizer.step()
 
             if (batch_idx + 1) % log_iter == 0 and rank == 0:
