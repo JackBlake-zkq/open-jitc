@@ -59,6 +59,8 @@ def handle_failure():
         time.sleep(1)
         checkpoint_state()
         forcibly_kill_process()
+    else:
+        print("In optimizer step, waiting for opt step to finish before checkpointing")
 
 
 def master_send_failure_to_clients(skip=[]):
@@ -257,13 +259,9 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
 
             optimizer.step()
 
-            # Logging
-            elapsed_time = time.time() - start_time
-            start_time = time.time()
-
             if (batch_idx + 1) % log_iter == 0 and rank == 0:
                 iter_time = time.time() - log_iter_start
-                print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Time {iter_time:.2f}")
+                print(f"Rank {rank} | Epoch {epoch} | Batch {batch_idx + 1} | Loss {loss.item():.4f} | Avg Iter Time {iter_time / log_iter:.2f}")
                 log_iter_start = time.time()
     except BaseException as e:
         watchdog_stop_event.set()
