@@ -58,7 +58,7 @@ def inform_interceptor_to_switch_streams():
 
 def handle_failure():
     """Return true if thread should return"""
-    global stop
+    global stop, in_opt_step
     stop = True
     if not in_opt_step:
         checkpoint_state()
