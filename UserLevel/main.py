@@ -138,6 +138,7 @@ def setup_watchdog(stop_event, rank):
 # signal.signal(signal.SIGABRT, handle_sigabrt)
 
 def master_consolidate_checkpoints():
+    start = time.time()
     global jit_checkpoint_dir, addrs
     print("Consolidating checkpoints")
     newest_path = f"{jit_checkpoint_dir}/newest.cp"
@@ -170,9 +171,12 @@ def master_consolidate_checkpoints():
             print(f"Error during scp: {e}")
 
     print("Sent best checkpoint to other ranks")
+    elapsed = time.time() - start
+    print(f"Consolidation took {elapsed:.2f} seconds")
     
 
 def checkpoint_state():
+    start = time.time()
     global optimizer, epoch, batch_idx, raw_model, ddp_model
     print("Checkpointing state")
     path = f"{jit_checkpoint_dir}/jit.cp"
@@ -186,8 +190,11 @@ def checkpoint_state():
             'batch_idx': batch_idx,
     }, path)
     print("Done checkpointing")
-
+    elapsed = time.time() - start
+    print(f"Checkpointing took {elapsed:.2f} seconds")
+    
 def recover_state():
+    start = time.time()
     global jit_checkpoint_dir, raw_model, optimizer, epoch, batch_idx
     print("Recovering state")
     path = f"{jit_checkpoint_dir}/newest.cp"
@@ -205,7 +212,10 @@ def recover_state():
     optimizer.load_state_dict(checkpoint['optimizer_state'])
     os.remove(path)
     print("Recovered state")
+    elapsed = time.time() - start
+    print(f"Recovering took {elapsed:.2f} seconds")
     return checkpoint['epoch'], checkpoint['batch_idx']
+
 
 # --- Training ---
 def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog_stop_event, sampler):

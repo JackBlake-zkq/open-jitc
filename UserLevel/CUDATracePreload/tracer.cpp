@@ -183,23 +183,23 @@ void my_init() {
 // }
 
 cudaError_t cudaStreamSynchronize(cudaStream_t stream) {
-    printf("cudaStreamSynchronize called\n");
+    // printf("cudaStreamSynchronize called\n");
     auto original_cudaStreamSynchronize = (cudaError_t (*)(cudaStream_t))dlsym(handle, "cudaStreamSynchronize");
     if(useAltCudaStream) {
-        printf("Using alternative CUDA stream for sync\n");
+        // printf("Using alternative CUDA stream for sync\n");
         // change to new CUDA stream
         cudaError_t result = original_cudaStreamSynchronize(newStream);
-        printf("cudaStreamSynchronize done\n");
+        // printf("cudaStreamSynchronize done\n");
         return result;
     }
     return original_cudaStreamSynchronize(stream);
 }
 
 cudaError_t cudaMemcpy(void* dst, const void* src, size_t count, cudaMemcpyKind kind) {
-    printf("cudaMemcpy called\n");
+    // printf("cudaMemcpy called\n");
     auto original_cudaMemcpy = (cudaError_t (*)(void*, const void*, size_t, cudaMemcpyKind))dlsym(handle, "cudaMemcpy");
     if(useAltCudaStream) {
-        printf("Using alternative CUDA stream for memcpy\n");
+        // printf("Using alternative CUDA stream for memcpy\n");
         auto original_cudaMemcpyAsync = (cudaError_t (*)(void*, const void*, size_t, cudaMemcpyKind, cudaStream_t))dlsym(handle, "cudaMemcpyAsync");
         auto original_cudaStreamSynchronize = (cudaError_t (*)(cudaStream_t))dlsym(handle, "cudaStreamSynchronize");
         cudaError_t result;
@@ -208,21 +208,21 @@ cudaError_t cudaMemcpy(void* dst, const void* src, size_t count, cudaMemcpyKind 
             printf("cudaMemcpyAsync failed: %s\n", cudaGetErrorString(result));
             return result;
         }
-        original_cudaStreamSynchronize(newStream);
-        printf("cudaMemcpy done\n");
+        result = original_cudaStreamSynchronize(newStream);
+        // printf("cudaMemcpy done\n");
         return result;
     }
     return original_cudaMemcpy(dst, src, count, kind);
 }
 
 cudaError_t cudaMemcpyAsync(void* dst, const void* src, size_t count, cudaMemcpyKind kind, cudaStream_t stream) {
-    printf("cudaMemcpyAsync called\n");
+    // printf("cudaMemcpyAsync called\n");
     auto original_cudaMemcpyAsync = (cudaError_t (*)(void*, const void*, size_t, cudaMemcpyKind, cudaStream_t))dlsym(handle, "cudaMemcpyAsync");
     if(useAltCudaStream) {
-        printf("Using alternative CUDA stream for memcpy async\n");
+        // printf("Using alternative CUDA stream for memcpy async\n");
         // change to new CUDA stream
         cudaError_t result = original_cudaMemcpyAsync(dst, src, count, kind, newStream);
-        printf("cudaMemcpyAsync done\n");
+        // printf("cudaMemcpyAsync done\n");
         return result;
 
     }
