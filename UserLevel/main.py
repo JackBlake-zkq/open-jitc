@@ -300,7 +300,7 @@ def run(rank, size, from_checkpoint, model_name):
     
     resize = [transforms.Resize((224, 224))]
     if model_name == 'Vit-H':
-        transforms = resize + train_transforms
+        train_transforms = resize + train_transforms
     transform_train = transforms.Compose(train_transforms)
 
     test_transforms = [
