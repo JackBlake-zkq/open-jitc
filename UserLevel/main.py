@@ -21,6 +21,7 @@ import select
 import shutil
 import sys
 from datetime import datetime, timedelta
+import torchvision.models as models
 
 # print("GIL Enabled:", sys._is_gil_enabled())
 
@@ -284,9 +285,9 @@ def test_model(model, test_loader, criterion):
     print(f"Test set: Average loss {test_loss/len(test_loader):.4f}, Accuracy {correct}/{len(test_loader.dataset)}")
 
 
-def run(rank, size, from_checkpoint):
+def run(rank, size, from_checkpoint, model_name):
     print("Using Checkpoint" if from_checkpoint else "Not using Checkpoint")
-    global device, addrs, checkpointer, raw_model, ddp_model, optimizer, epoch, batch_idx, watchdog_thread
+    global device, addrs, raw_model, ddp_model, optimizer, epoch, batch_idx, watchdog_thread
     device = torch.device(f"cuda:0" if torch.cuda.is_available() else "cpu")
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -307,7 +308,13 @@ def run(rank, size, from_checkpoint):
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler=sampler, num_workers=2, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
     
-    raw_model = mdl.VGG11().to(device)
+    if model_name == 'VGG11':
+        raw_model = mdl.VGG11().to(device)
+    elif model_name == 'ResNet152':
+        raw_model = models.resnet152(pretrained=False, num_classes=10).to(device)
+    elif model_name == 'Vit-H':
+        raw_model = models.vit_h_14(pretrained=False, num_classes=10).to(device)
+    
     model_param_bytes = sum(p.element_size() * p.nelement() for p in raw_model.parameters())
     print(f"Model Size (GB): {model_param_bytes / (1024*1024*1024)}")
     # ddp_model = DDP(raw_model, device_ids=[0] if torch.cuda.is_available() else None)
@@ -344,6 +351,7 @@ if __name__ == "__main__":
     parser.add_argument('--error_before_opt_step', action='store_true', default=False, help='Simulate error before optimizer step')
     parser.add_argument('--all_reduce_timeout', type=int, default=10, help='Timeout for a single batch in seconds')
     parser.add_argument('--from_checkpoint', action='store_true', default=False, help='Load from checkpoint')
+    parser.add_argument('--model', type=str, default='VGG11', choices=['VGG11', 'ResNet152', 'Vit-H'], help='Model to use')
     args = parser.parse_args()
 
     client_socket = None
@@ -375,4 +383,4 @@ if __name__ == "__main__":
 
     dist.init_process_group("nccl", init_method=f"tcp://{args.master_ip}:6585", rank=args.rank, world_size=args.num_nodes)
         # dist.init_process_group("nccl", init_method=f"tcp://{args.master_ip}:6585", rank=args.rank, world_size=args.num_nodes, timeout=timedelta(seconds=args.all_reduce_timeout))
-    run(args.rank, args.num_nodes, args.from_checkpoint)
+    run(args.rank, args.num_nodes, args.from_checkpoint, args.model)
