@@ -50,14 +50,17 @@ raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
 def forcibly_kill_process():
     os.kill(os.getpid(), signal.SIGKILL)
 
-def handle_failure():
-    """Return true if thread should return"""
-    global stop, app_log_file
+def inform_interceptor_to_switch_streams():
+    global app_log_file
     app_log_file.write("failed\n")
     app_log_file.flush()
+    time.sleep(1)
+
+def handle_failure():
+    """Return true if thread should return"""
+    global stop
     stop = True
     if not in_opt_step:
-        time.sleep(1)
         checkpoint_state()
         forcibly_kill_process()
         return False
@@ -184,6 +187,7 @@ def master_consolidate_checkpoints():
     
 
 def checkpoint_state():
+    inform_interceptor_to_switch_streams()
     start = time.time()
     global optimizer, epoch, batch_idx, raw_model, ddp_model
     print("Checkpointing state")
