@@ -198,14 +198,6 @@ def recover_state():
     print("Recovering state")
     path = f"{jit_checkpoint_dir}/newest.cp"
     prev_size = 0
-    while True:
-        if not os.path.exists(path):
-            time.sleep(1)
-            continue
-        if os.path.getsize(path) == prev_size:
-            break
-        time.sleep(1)
-
     checkpoint = torch.load(path, map_location=device)
     raw_model.load_state_dict(checkpoint['model_state'])
     optimizer.load_state_dict(checkpoint['optimizer_state'])
@@ -323,6 +315,9 @@ def run(rank, size, from_checkpoint):
     if from_checkpoint:
         if rank == 0:
             master_consolidate_checkpoints()
+            dist.barrier()
+        else:
+            dist.barrier()
         epoch, batch_idx = recover_state()
 
     watchdog_stop_event = threading.Event()
@@ -370,14 +365,11 @@ if __name__ == "__main__":
         client_socket.setblocking(False)
 
 
-    global batch_size, num_epochs, stop_iter, log_file_name
+    global batch_size, num_epochs, stop_iter
     batch_size = args.total_batch_size // args.num_nodes
     num_epochs = args.epoch
     stop_iter = args.stop_iter
-    log_file_name = f"timelog_{num_epochs}_{stop_iter}_{args.num_nodes}_{batch_size}.csv"
 
-    with open(f'output/{log_file_name}', 'w') as f:
-        f.write("epoch,iteration,elapsed_time\n")
 
     dist.init_process_group("nccl", init_method=f"tcp://{args.master_ip}:6585", rank=args.rank, world_size=args.num_nodes)
         # dist.init_process_group("nccl", init_method=f"tcp://{args.master_ip}:6585", rank=args.rank, world_size=args.num_nodes, timeout=timedelta(seconds=args.all_reduce_timeout))
