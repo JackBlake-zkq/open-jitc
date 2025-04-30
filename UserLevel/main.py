@@ -46,13 +46,6 @@ addrs = []
 connections = []
 raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
 
-# --- Globals for signal handling ---
-
-# def handle_sigusr1(signum, frame):
-#     time.sleep(9999)
-
-# signal.signal(signal.SIGUSR1, handle_sigusr1)
-
 def forcibly_kill_process():
     os.kill(os.getpid(), signal.SIGKILL)
 
@@ -62,9 +55,9 @@ def handle_failure():
     app_log_file.flush()
     stop = True
     if not in_opt_step:
-        # os.kill(os.getpid(), signal.SIGUSR1)
         time.sleep(1)
         checkpoint_state()
+        forcibly_kill_process()
 
 
 def master_send_failure_to_clients(skip=[]):
@@ -198,8 +191,15 @@ def recover_state():
     global jit_checkpoint_dir, raw_model, optimizer, epoch, batch_idx
     print("Recovering state")
     path = f"{jit_checkpoint_dir}/newest.cp"
-    while not os.path.exists(path):
-        time.sleep(10)
+    while True:
+        if not os.path.exists(path):
+            time.sleep(1)
+            continue
+        try:
+            with open(path, "w") as f:
+                break 
+        except (PermissionError, IOError):
+            time.sleep(1) #file is being written to still, wait
     checkpoint = torch.load(path, map_location=device)
     raw_model.load_state_dict(checkpoint['model_state'])
     optimizer.load_state_dict(checkpoint['optimizer_state'])
