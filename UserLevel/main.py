@@ -192,13 +192,14 @@ def checkpoint_state():
             'epoch': epoch,
             'batch_idx': batch_idx,
     }, path)
+    print("Done checkpointing")
 
 def recover_state():
     global jit_checkpoint_dir, raw_model, optimizer, epoch, batch_idx
     print("Recovering state")
     path = f"{jit_checkpoint_dir}/newest.cp"
     while not os.path.exists(path):
-        time.sleep(1)
+        time.sleep(10)
     checkpoint = torch.load(path, map_location=device)
     raw_model.load_state_dict(checkpoint['model_state'])
     optimizer.load_state_dict(checkpoint['optimizer_state'])
@@ -235,10 +236,16 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
 
             loss.backward()
 
+            s = torch.cuda.Stream()
+
             # gradient commmunication using all_reduce
             for param in model.parameters():
-                dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
+                handle = dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM, async_op=True)
+                handle.wait()
                 param.grad.data /= args.num_nodes
+
+            with torch.cuda.stream(s):
+                s.wait_stream(torch.cuda.default_stream())
 
             in_opt_step = True
 
