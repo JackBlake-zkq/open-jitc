@@ -272,6 +272,8 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
     except BaseException as e:
         watchdog_stop_event.set()
         print("Caught exception:", e)
+        watchdog_thread.join()
+        
 
 
 # --- Testing ---
