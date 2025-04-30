@@ -253,7 +253,9 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
             in_opt_step = True
 
             if stop:
+                print("Stop set")
                 watchdog_thread.join()
+                print("Watchdog returned, will checkpoint at beginning of next batch")
 
             optimizer.step()
 
