@@ -197,15 +197,15 @@ def recover_state():
     global jit_checkpoint_dir, raw_model, optimizer, epoch, batch_idx
     print("Recovering state")
     path = f"{jit_checkpoint_dir}/newest.cp"
+    prev_size = 0
     while True:
         if not os.path.exists(path):
             time.sleep(1)
             continue
-        try:
-            with open(path, "w") as f:
-                break 
-        except (PermissionError, IOError, EOFError):
-            time.sleep(1) #file is being written to still, wait
+        if os.path.getsize(path) == prev_size:
+            break
+        time.sleep(1)
+
     checkpoint = torch.load(path, map_location=device)
     raw_model.load_state_dict(checkpoint['model_state'])
     optimizer.load_state_dict(checkpoint['optimizer_state'])
