@@ -182,7 +182,6 @@ def checkpoint_state():
     path = f"{jit_checkpoint_dir}/jit.cp"
     cpu_model = raw_model.cpu()
     print("move to cpu done")
-    print(cpu_model.state_dict())
     torch.save({
             'model_state': cpu_model.state_dict(),
             'optimizer_state': optimizer.state_dict(),
