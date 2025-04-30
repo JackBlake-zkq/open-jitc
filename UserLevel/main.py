@@ -291,17 +291,26 @@ def run(rank, size, from_checkpoint, model_name):
     print("Using Checkpoint" if from_checkpoint else "Not using Checkpoint")
     global device, addrs, raw_model, ddp_model, optimizer, epoch, batch_idx, watchdog_thread
     device = torch.device(f"cuda:0" if torch.cuda.is_available() else "cpu")
-    transform_train = transforms.Compose([
+    transforms = [
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.49, 0.48, 0.45], std=[0.25, 0.24, 0.26]),
-        ])
+        ]
+    
+    resize = [transforms.Resize((224, 224))]
+    if model_name == 'Vit-H':
+        transforms = resize + transforms
+    transform_train = transforms.Compose(transforms)
 
-    transform_test = transforms.Compose([
+    test_transforms = [
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.49, 0.48, 0.45], std=[0.25, 0.24, 0.26]),
-        ])
+        ]
+    if model_name == 'Vit-H':
+        test_transforms = resize + test_transforms
+
+    transform_test = transforms.Compose(test_transforms)
 
     train_dataset = datasets.CIFAR10('./data', train=True, download=True, transform=transform_train)
     test_dataset = datasets.CIFAR10('./data', train=False, download=True, transform=transform_test)
