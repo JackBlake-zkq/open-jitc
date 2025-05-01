@@ -46,6 +46,7 @@ watchdog_thread = None
 addrs = []
 connections = []
 raw_model, optimizer, epoch, batch_idx, ddp_model = None, None, 0, 0, None
+batch_start_time = time.time()
 
 def forcibly_kill_process():
     os.kill(os.getpid(), signal.SIGKILL)
@@ -111,8 +112,9 @@ def recv_failure_from_master():
 # --- Watchdog ---
 def setup_watchdog(stop_event, rank):
     def watchdog():
-        global client_socket, connections
+        global client_socket, connections, batch_start_time, args
         while True:
+
             if stop_event.is_set():
                 print("Stop event set!")
                 if rank == 0:
@@ -121,6 +123,10 @@ def setup_watchdog(stop_event, rank):
                 else:
                     send_failure_to_master()
                     forcibly_kill_process()
+            if time.time() - batch_start_time > args.batch_timeout:
+                print("Batch timeout detected, checkpointing")
+                if handle_failure():
+                    return
             if rank == 0:
                 if master_recv_and_forward_failures():
                     return
@@ -138,15 +144,6 @@ def setup_watchdog(stop_event, rank):
     watchdog_thread = threading.Thread(target=watchdog, daemon=True)
     watchdog_thread.start()
     return watchdog_thread
-
-
-# def handle_sigabrt(signum, frame):
-#     print("SIGABRT received")
-#     checkpoint_state()
-#     sys.exit(1)
-
-# # Register the handler
-# signal.signal(signal.SIGABRT, handle_sigabrt)
 
 def master_consolidate_checkpoints():
     start = time.time()
@@ -224,12 +221,12 @@ def recover_state():
 def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog_stop_event, sampler):
     model.train()
     log_iter_start = time.time()
-    global args, stop, in_opt_step, watchdog_thread
+    global args, stop, in_opt_step, watchdog_thread, batch_start_time
     try:
         for batch_idx, (data, target) in enumerate(train_loader):
             if batch_idx >= stop_iter:
                 break
-            in_opt_step = False
+            batch_start_time = time.time()
             if stop:
                 print("Stop detected, beggining of batch, will checkpoint")
                 checkpoint_state()
@@ -268,6 +265,8 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
                 raise RuntimeError("Simulated error after all_reduce")
 
             optimizer.step()
+
+            in_opt_step = False
 
             if (batch_idx + 1) % log_iter == 0 and rank == 0:
                 iter_time = time.time() - log_iter_start
@@ -368,7 +367,7 @@ if __name__ == "__main__":
     parser.add_argument('--total_batch_size', type=int, default=256)
     parser.add_argument('--error_before_opt_step', action='store_true', default=False, help='Simulate error before optimizer step')
     parser.add_argument('--error_during_opt_step', action='store_true', default=False, help='Simulate error during optimizer step')
-    parser.add_argument('--all_reduce_timeout', type=int, default=10, help='Timeout for a single batch in seconds')
+    parser.add_argument('--batch_timeout', type=int, default=100, help='Timeout for a single batch in seconds')
     parser.add_argument('--from_checkpoint', action='store_true', default=False, help='Load from checkpoint')
     parser.add_argument('--model', type=str, default='VGG11', choices=['VGG11', 'ResNet152', 'VGG19'], help='Model to use')
     args = parser.parse_args()
@@ -401,5 +400,4 @@ if __name__ == "__main__":
 
 
     dist.init_process_group("nccl", init_method=f"tcp://{args.master_ip}:6585", rank=args.rank, world_size=args.num_nodes)
-        # dist.init_process_group("nccl", init_method=f"tcp://{args.master_ip}:6585", rank=args.rank, world_size=args.num_nodes, timeout=timedelta(seconds=args.all_reduce_timeout))
     run(args.rank, args.num_nodes, args.from_checkpoint, args.model)
