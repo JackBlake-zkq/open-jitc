@@ -1,3 +1,5 @@
+This folder contains some retired error simulation and detection code that uses NVIDIA Datacetner GPU Manager (DCGM).
+
 
 Install DCGM:
 ```bash
