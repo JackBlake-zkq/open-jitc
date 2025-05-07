@@ -353,6 +353,7 @@ def run(rank, size, from_checkpoint, model_name):
             master_consolidate_checkpoints()
             dist.barrier()
         else:
+            print("Waiting for master to consolidate checkpoints")
             dist.barrier()
         epoch, batch_idx = recover_state()
 
