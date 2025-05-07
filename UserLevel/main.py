@@ -166,7 +166,6 @@ def master_consolidate_checkpoints():
         if fname == "newest.cp":
             continue
         if fname.endswith(".cp"):
-            epoch, batch_idx = map(int, fname.split("_")[1:3])
             cp_epoch = int(newest_name.split("_")[1])
             cp_batch_idx = int(newest_name.split("_")[2])
             if epoch > cp_epoch or (epoch == cp_epoch and batch_idx > cp_batch_idx):
