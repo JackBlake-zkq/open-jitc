@@ -252,7 +252,6 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
                 dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
                 param.grad.data /= args.num_nodes
             dist.barrier()
-            print("After all_reduce")
             in_all_reduce = False
             in_opt_step = True
 
@@ -261,7 +260,6 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
                 watchdog_thread.join()
                 print("Watchdog returned, will checkpoint at beginning of next batch")
 
-            print("Entering optimizer step")
 
             if args.error_during_opt_step and batch_idx == 1 and epoch == 0:
                 raise RuntimeError("Simulated error after all_reduce")
