@@ -320,6 +320,7 @@ def run(rank, size, from_checkpoint, model_name):
 
     transform_test = transforms.Compose(test_transforms)
 
+    # Change to your dataset
     train_dataset = datasets.CIFAR10('./data', train=True, download=True, transform=transform_train)
     test_dataset = datasets.CIFAR10('./data', train=False, download=True, transform=transform_test)
 
@@ -327,6 +328,7 @@ def run(rank, size, from_checkpoint, model_name):
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler=sampler, num_workers=2, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
     
+    # Change to your model
     if model_name == 'VGG11':
         raw_model = mdl.VGG11().to(device)
     elif model_name == 'ResNet152':
@@ -336,7 +338,12 @@ def run(rank, size, from_checkpoint, model_name):
     
     model_param_bytes = sum(p.element_size() * p.nelement() for p in raw_model.parameters())
     print(f"Model Size (GB): {model_param_bytes / (1024*1024*1024)}")
-    # ddp_model = DDP(raw_model, device_ids=[0] if torch.cuda.is_available() else None)
+    device_ids = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
+    if not device_ids:
+        device_ids = [0]
+    if len(device_ids) > 1:
+        raise Exception("Only one GPU per rank is supported")
+    ddp_model = DDP(raw_model, device_ids=device_ids if torch.cuda.is_available() else None)
     optimizer = optim.SGD(raw_model.parameters(), lr=0.1, momentum=0.9, weight_decay=0.0001)
     criterion = nn.CrossEntropyLoss().to(device)
 
