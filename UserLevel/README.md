@@ -15,13 +15,14 @@ LD_PRELOAD="abosulte_path_to/tracer.so"
 e.g.
 
 ```bash
-LD_PRELOAD="/home/$USER/open-jitc/UserLevel/CUDATracePreload/tracer.so" python3 main.py --master-ip 10.128.0.13 --all_reduce_timeout 100 --num-nodes 2  --rank 0
+LD_PRELOAD="/home/$USER/open-jitc/UserLevel/CUDATracePreload/tracer.so" python3 main.py --master-ip 10.128.0.14 --all_reduce_timeout 100 --num-nodes 2  --rank 0
 ```
 
 For all options, run:
 ```bash
 python3 main.py -h
 ```
+Note the `--all_reduce_timeout` and `--from_checkpoint` options are very relevant to JITC.
 
 Additionally, make sure that the master can ssh into all other ranks. An easy way to do this is ssh agent with something like this in your ssh config file:
 
@@ -45,13 +46,17 @@ We also test with errors that are more real and uncatchable:
 
 Firstly, a simulate  corrupting CUDA drivers:
 ```bash
-export LIB_CUDA_PATH=$(find / -name 'libcuda.so' | head -n 1)
-cp $LIB_CUDA_PATH .
-sudo shred $LIB_CUDA_PATH
+export LIBTORCH_CUDA_PATH=$(sudo find / -name 'libtorch_cuda.so' | head -n 1)
+echo $LIBTORCH_CUDA_PATH
+cp $LIBTORCH_CUDA_PATH .
+ls
+sudo shred $LIBTORCH_CUDA_PATH
 ```
+This should cause a seg fault for the rank it's done on, which cannot be caught in the training script, so recovery will happen after the all reduce times out.
+
 After failure, to recover:
 ```bash
-cp libcuda.so $LIB_CUDA_PATH
+cp libcuda.so $LIBTORCH_CUDA_PATH
 ```
 You could imagine starting from a fresh image to have the same effect, which is probably what you would do in practice.
 
