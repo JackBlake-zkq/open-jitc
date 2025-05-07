@@ -56,7 +56,7 @@ This should cause a seg fault for the rank it's done on, which cannot be caught 
 
 After failure, to recover:
 ```bash
-cp libcuda.so $LIBTORCH_CUDA_PATH
+cp libtorch_cuda.so $LIBTORCH_CUDA_PATH
 ```
 You could imagine starting from a fresh image to have the same effect, which is probably what you would do in practice.
 
