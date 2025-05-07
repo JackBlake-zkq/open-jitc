@@ -244,13 +244,14 @@ def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog
 
             optimizer.zero_grad()
 
-            loss.backward()
             in_all_reduce = True
             all_reduce_start_time = time.time()
-            # gradient commmunication using all_reduce
-            for param in model.parameters():
-                dist.all_reduce(param.grad.data, op=dist.ReduceOp.SUM)
-                param.grad.data /= args.num_nodes
+            # backward calls allreduce on the gradients, which were already eagerly computed
+            # there may still be some gradients to compute, but hopefully that gets overlapped with the allreduce
+            # technically the "all_reduce_timeout" you specify includes any remaining gradient computation
+            loss.backward()
+            # barrier to synchronize all ranks, in case all reduce does not
+            # (it should in gerneral but we think we saw some isntances where it did not)
             dist.barrier()
             in_all_reduce = False
             in_opt_step = True
@@ -360,10 +361,10 @@ def run(rank, size, from_checkpoint, model_name):
     sampler.set_epoch(epoch)
 
     for epoch in range(num_epochs):
-        train_model(raw_model, train_loader, optimizer, criterion, epoch, rank, watchdog_stop_event, sampler)
+        train_model(ddp_model, train_loader, optimizer, criterion, epoch, rank, watchdog_stop_event, sampler)
 
     if rank == 0:
-        test_model(raw_model, test_loader, criterion)
+        test_model(ddp_model, test_loader, criterion)
 
 # --- Main Entrypoint ---
 if __name__ == "__main__":
