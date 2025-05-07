@@ -338,9 +338,11 @@ def run(rank, size, from_checkpoint, model_name):
     
     model_param_bytes = sum(p.element_size() * p.nelement() for p in raw_model.parameters())
     print(f"Model Size (GB): {model_param_bytes / (1024*1024*1024)}")
-    device_ids = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
-    if not device_ids:
-        device_ids = [0]
+    device_ids = [0]
+    try:
+        device_ids = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
+    except KeyError:
+        print("CUDA_VISIBLE_DEVICES not set, using default")
     if len(device_ids) > 1:
         raise Exception("Only one GPU per rank is supported")
     ddp_model = DDP(raw_model, device_ids=device_ids if torch.cuda.is_available() else None)
