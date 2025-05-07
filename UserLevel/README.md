@@ -24,7 +24,7 @@ python3 main.py -h
 ```
 Note the `--all_reduce_timeout` and `--from_checkpoint` options are very relevant to JITC.
 
-Additionally, make sure that the master can ssh into all other ranks. An easy way to do this is ssh agent with something like this in your ssh config file:
+Additionally, make sure that the master can ssh into all other ranks via `ssh ip_address`. It should not need to specify the user or provide a password. An easy way to do this is ssh agent with something like this in your ssh config file:
 
 ```
 Host vm_name
