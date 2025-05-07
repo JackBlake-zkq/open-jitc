@@ -148,26 +148,29 @@ def setup_watchdog(stop_event, rank):
 
 def master_consolidate_checkpoints():
     start = time.time()
-    global jit_checkpoint_dir, addrs
+    global jit_checkpoint_dir, addrs, args
     print("Consolidating checkpoints")
     newest_path = f"{jit_checkpoint_dir}/newest.cp"
     if(os.path.exists(newest_path)):
         os.remove(newest_path)
     for i,addr in enumerate(addrs):
         try:
-            subprocess.run(['scp', f'{addr[0]}:{jit_checkpoint_dir}/jit.cp', f'{jit_checkpoint_dir}/jit_{i}.cp'], check=True)
+            subprocess.run(['scp', '-r', f'{addr[0]}:{jit_checkpoint_dir}', jit_checkpoint_dir], check=True)
         except subprocess.CalledProcessError as e:
             print(f"Error during scp: {e}")
     print("Got files from other ranks")
 
     checkpoint_fnames = os.listdir(jit_checkpoint_dir)
     newest_name = checkpoint_fnames[0]
-    newest = torch.load(f"{jit_checkpoint_dir}/{newest_name}")
     for fname in checkpoint_fnames:
-        checkpoint = torch.load(f"{jit_checkpoint_dir}/{fname}")
-        if checkpoint['epoch'] > newest['epoch'] or checkpoint['batch_idx'] > newest['batch_idx']:
-            newest_name = fname
-            newest = checkpoint
+        if fname == "newest.cp":
+            continue
+        if fname.endswith(".cp"):
+            epoch, batch_idx = map(int, fname.split("_")[1:3])
+            cp_epoch = int(newest_name.split("_")[1])
+            cp_batch_idx = int(newest_name.split("_")[2])
+            if epoch > cp_epoch or (epoch == cp_epoch and batch_idx > cp_batch_idx):
+                newest_name = fname
     newest_path = f"{jit_checkpoint_dir}/newest.cp"
     print(f"Best checkpoint: {newest_name}")
     shutil.copy(f"{jit_checkpoint_dir}/{newest_name}", newest_path)
@@ -187,9 +190,9 @@ def master_consolidate_checkpoints():
 def checkpoint_state():
     inform_interceptor_to_switch_streams()
     start = time.time()
-    global optimizer, epoch, batch_idx, raw_model, ddp_model
+    global optimizer, epoch, batch_idx, raw_model, ddp_model, args
     print("Checkpointing state")
-    path = f"{jit_checkpoint_dir}/jit.cp"
+    path = f"{jit_checkpoint_dir}/jit_{args.rank}_{epoch}_{batch_idx}.cp"
     cpu_model = raw_model.cpu()
     print("move to cpu done")
     torch.save({
@@ -222,7 +225,7 @@ def recover_state():
 def train_model(model, train_loader, optimizer, criterion, epoch, rank, watchdog_stop_event, sampler):
     model.train()
     log_iter_start = time.time()
-    global args, stop, in_opt_step, watchdog_thread, all_reduce_start_time, in_all_reduce
+    global args, stop, in_opt_step, watchdog_thread, all_reduce_start_time, in_all_reduce, batch_idx
     try:
         for batch_idx, (data, target) in enumerate(train_loader):
             if batch_idx >= stop_iter:
