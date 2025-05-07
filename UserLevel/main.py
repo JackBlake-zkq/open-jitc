@@ -155,7 +155,7 @@ def master_consolidate_checkpoints():
         os.remove(newest_path)
     for i,addr in enumerate(addrs):
         try:
-            subprocess.run(['scp', '-r', f'{addr[0]}:{jit_checkpoint_dir}/jit*', jit_checkpoint_dir], check=True)
+            subprocess.run(['scp', f'{addr[0]}:{jit_checkpoint_dir}/jit*', jit_checkpoint_dir], check=True)
         except subprocess.CalledProcessError as e:
             print(f"Error during scp: {e}")
     print("Got files from other ranks")
